@@ -41,7 +41,11 @@
     "nsis": {
       "oneClick": true,
       "perMachine": false,
-      "runAfterFinish": true
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Tito",
+      "deleteAppDataOnUninstall": false
     },
     "asarUnpack": [
       "node_modules/node-llama-cpp/**",
@@ -52,7 +56,13 @@
     ],
     "electronLanguages": [
       "en-US"
-    ]
+    ],
+    "artifactName": "Tito-Setup.exe",
+    "compression": "normal",
+    "publish": null,
+    "directories": {
+      "output": "dist"
+    }
   },
   "devDependencies": {
     "@phosphor-icons/core": "^2.1.1",
