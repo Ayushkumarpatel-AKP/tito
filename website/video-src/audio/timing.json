@@ -1,0 +1,42 @@
+[
+ {
+  "key": "hello",
+  "text": "Hi, I'm Tito, the tiny astronaut who lives on your screen.",
+  "dur": 5.52
+ },
+ {
+  "key": "shortcut",
+  "text": "See something you don't understand? Press Control, Shift and Space.",
+  "dur": 6.48
+ },
+ {
+  "key": "draw",
+  "text": "Then just draw a loop around it, or drag a box.",
+  "dur": 4.464
+ },
+ {
+  "key": "answer",
+  "text": "Tito looks closely, and explains it in simple words.",
+  "dur": 4.728
+ },
+ {
+  "key": "translate",
+  "text": "Need it in Hindi, Marathi or Tamil? One tap translates it.",
+  "dur": 6.432
+ },
+ {
+  "key": "offline",
+  "text": "No internet? No problem. A small built-in AI and an offline Hindi translator live right on your PC.",
+  "dur": 10.224
+ },
+ {
+  "key": "more",
+  "text": "Save any answer as a clean PDF, keep it in your notebook, and bring any AI key. Free ones from Gemini or Groq work great.",
+  "dur": 11.304
+ },
+ {
+  "key": "cta",
+  "text": "Tito is free for Windows. Say hello at tito dot enigmadev dot tech.",
+  "dur": 7.08
+ }
+]

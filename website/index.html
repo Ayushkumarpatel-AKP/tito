@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tito, a tiny astronaut that explains your screen</title>
+<meta name="description" content="Press a shortcut, draw around anything on your screen and Tito explains it. Translate, save as PDF, work offline, bring any AI key. Free for Windows.">
+<meta name="theme-color" content="#a6ecdf">
+<meta property="og:title" content="Tito, a tiny astronaut that explains your screen">
+<meta property="og:description" content="Draw around anything on screen and Tito tells you what it means. Free for Windows.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://tito.enigmadev.tech">
+<meta property="og:image" content="https://tito.enigmadev.tech/poster.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="/icon.png">
+<link rel="preload" href="/fonts/bagel-fat-one-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/nunito-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+<script>document.documentElement.classList.add('js');</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav" id="top">
+  <nav class="nav__pill" aria-label="Main">
+    <a class="nav__brand" href="#top" aria-label="Tito home"><span class="nav__logo" id="logoTito" aria-hidden="true"></span><span class="nav__name">Tito</span></a>
+    <ul class="nav__links">
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#watch">Watch</a></li>
+      <li><a href="#try">Try it</a></li>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#offline">Offline</a></li>
+      <li><a href="#setup">Setup</a></li>
+    </ul>
+    <a class="nav__icon" href="https://github.com/Ayushkumarpatel-AKP/tito" aria-label="Tito on GitHub"><i data-i="github-logo"></i></a>
+    <a class="btn btn--primary btn--sm" href="https://github.com/Ayushkumarpatel-AKP/tito/releases/latest">Download</a>
+  </nav>
+</header>
+
+<main id="main">
+
+<!-- 1. HERO -->
+<section class="slab slab--mint hero" aria-labelledby="h-hero">
+  <span class="blob blob--a" aria-hidden="true"></span><span class="blob blob--b" aria-hidden="true"></span><span class="blob blob--c" aria-hidden="true"></span>
+  <img class="float3d f-star" src="/3d/star.webp" width="400" height="400" alt="" aria-hidden="true" data-depth="0.4">
+  <img class="float3d f-magic" src="/3d/magic-trick.webp" width="400" height="400" alt="" aria-hidden="true" data-depth="0.7">
+  <img class="float3d f-heart" src="/3d/heart.webp" width="400" height="400" alt="" aria-hidden="true" data-depth="0.5">
+  <div class="container hero__grid">
+    <div class="hero__copy">
+      <h1 id="h-hero">Your screen, explained by a tiny astronaut.</h1>
+      <p class="lead">Draw around anything on screen and Tito tells you what it means.</p>
+      <div class="actions">
+        <a class="btn btn--primary" data-magnet href="https://github.com/Ayushkumarpatel-AKP/tito/releases/latest"><i data-i="windows-logo"></i>Download for Windows</a>
+        <a class="btn btn--ghost" data-magnet href="#watch"><i data-i="play"></i>Watch Tito work</a>
+      </div>
+    </div>
+    <div class="hero__stage" id="heroStage" aria-hidden="true">
+      <div class="keys">
+        <span class="keycap">Ctrl</span><span class="keycap">Shift</span><span class="keycap keycap--wide">Space</span>
+      </div>
+      <div class="paper clay">
+        <p class="paper__text">Où est la <span class="paper__mark">bibliothèque</span> ?</p>
+        <svg class="paper__loop" viewBox="0 0 320 120" preserveAspectRatio="none"><path pathLength="1" d="M 38 66 C 36 22, 120 12, 190 24 C 270 36, 300 70, 250 96 C 196 122, 84 112, 44 88 C 28 78, 30 60, 52 48"/></svg>
+      </div>
+      <div class="answer clay"><strong>Library</strong><span>Where is the library?</span></div>
+      <div class="hero__tito" id="heroTito"></div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. HOW IT WORKS: a pinned scene that plays as you scroll -->
+<section class="slab slab--lilac how" id="how" aria-labelledby="h-how">
+  <div class="how__pin">
+    <div class="container how__grid">
+      <div class="how__copy">
+        <h2 id="h-how">Press, draw, understand</h2>
+        <ol class="how__steps">
+          <li class="how__step is-on" data-step="0"><b class="how__n">1</b><div><h3>Press the shortcut</h3><p>Ctrl, Shift and Space wake Tito anywhere.</p></div></li>
+          <li class="how__step" data-step="1"><b class="how__n">2</b><div><h3>Draw around it</h3><p>A loop or a box, over any text or picture.</p></div></li>
+          <li class="how__step" data-step="2"><b class="how__n">3</b><div><h3>Read the answer</h3><p>Plain words or a translation, in a small card.</p></div></li>
+        </ol>
+      </div>
+      <div class="how__scene" aria-hidden="true">
+        <div class="how__keys"><span class="keycap">Ctrl</span><span class="keycap">Shift</span><span class="keycap keycap--wide">Space</span></div>
+        <div class="how__paper clay">
+          <p class="how__text">Où est la <span class="paper__mark">bibliothèque</span> ?</p>
+          <svg class="how__loop" viewBox="0 0 360 130" preserveAspectRatio="none"><path pathLength="1" d="M 40 70 C 38 24, 134 12, 212 26 C 300 40, 336 76, 280 104 C 218 132, 92 122, 46 96 C 28 84, 32 66, 56 52"/></svg>
+        </div>
+        <div class="how__answer clay"><strong>Library</strong><span>Where is the library?</span></div>
+        <div class="how__tito" id="howTito"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3. WATCH -->
+<section class="slab slab--butter" id="watch" aria-labelledby="h-watch">
+  <div class="container">
+    <h2 id="h-watch">Tito at work, with sound on</h2>
+    <figure class="player clay">
+      <video id="vid" preload="metadata" playsinline controls poster="/poster.jpg" aria-label="Tito demo video with voiceover">
+        <source src="/tito-demo.mp4" type="video/mp4">
+      </video>
+      <button class="player__play" id="playBtn" type="button" aria-label="Play the video"><i data-i="play"></i></button>
+    </figure>
+  </div>
+</section>
+
+<!-- 4. TRY -->
+<section class="slab slab--peach" id="try" aria-labelledby="h-try">
+  <div class="container">
+    <h2 id="h-try">Try it right here</h2>
+    <div class="try">
+      <div class="try__tabs" role="tablist" aria-label="Pick something to point at">
+        <button class="chip is-on" role="tab" aria-selected="true" data-sample="fr" type="button">French sentence</button>
+        <button class="chip" role="tab" aria-selected="false" data-sample="err" type="button">Code error</button>
+        <button class="chip" role="tab" aria-selected="false" data-sample="hi" type="button">Hindi sentence</button>
+      </div>
+      <div class="try__screen clay">
+        <p class="try__text" id="tryText" lang="fr">Où est la bibliothèque, s’il vous plaît ?</p>
+        <svg class="try__loop" id="tryLoop" viewBox="0 0 600 160" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M 24 84 C 20 24, 200 8, 330 20 C 480 34, 584 66, 520 120 C 440 170, 120 160, 40 118 C 12 102, 18 84, 44 66"/></svg>
+        <button class="btn btn--primary" id="drawBtn" type="button"><i data-i="scribble-loop"></i>Draw around it</button>
+      </div>
+      <div class="try__card clay" id="tryCard" aria-live="polite">
+        <div class="try__pet" id="tryPet" aria-hidden="true"></div>
+        <h3 id="tryTitle">Tito is waiting</h3>
+        <p id="tryAnswer">Press the button and watch him work.</p>
+        <div class="try__acts" id="tryActs" hidden>
+          <button class="chip is-on" type="button" data-act="explain"><i data-i="sparkle"></i>Explain</button>
+          <button class="chip" type="button" data-act="translate"><i data-i="translate"></i>Translate</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. FEATURES -->
+<section class="slab slab--mint2" id="features" aria-labelledby="h-feat">
+  <div class="container">
+    <h2 id="h-feat">Everything you need, nothing to learn</h2>
+    <ul class="bento">
+      <li class="tile tile--lg" data-tone="lilac"><img class="tile__3d" src="/3d/target.webp" width="400" height="400" alt="" loading="lazy"><h3>Draw or drag a box</h3><p>Loop it, or drag a rectangle and resize it with handles.</p></li>
+      <li class="tile tile--lg" data-tone="butter"><img class="tile__3d" src="/3d/chat-text.webp" width="400" height="400" alt="" loading="lazy"><h3>Translate</h3><p>Hindi, Marathi, Tamil, Bengali, Telugu and more.</p></li>
+      <li class="tile" data-tone="rose"><img class="tile__3d" src="/3d/file-text.webp" width="400" height="400" alt="" loading="lazy"><h3>Save as PDF</h3><p>A clean page with the picture and the answer.</p></li>
+      <li class="tile" data-tone="peach"><img class="tile__3d" src="/3d/notebook.webp" width="400" height="400" alt="" loading="lazy"><h3>Notebook</h3><p>Every answer kept and searchable.</p></li>
+      <li class="tile" data-tone="lilac"><img class="tile__3d" src="/3d/megaphone.webp" width="400" height="400" alt="" loading="lazy"><h3>Read aloud</h3><p>Tito says the answer out loud.</p></li>
+      <li class="tile" data-tone="butter"><img class="tile__3d" src="/3d/picture.webp" width="400" height="400" alt="" loading="lazy"><h3>Grab text</h3><p>Copy text out of any picture.</p></li>
+      <li class="tile tile--wide" data-tone="rose"><img class="tile__3d" src="/3d/bulb.webp" width="400" height="400" alt="" loading="lazy"><h3>Remembers you</h3><p>Keeps your recent topics, only on your PC. Wipe it any time.</p></li>
+    </ul>
+  </div>
+</section>
+
+<!-- 6. OFFLINE -->
+<section class="slab slab--night" id="offline" aria-labelledby="h-off">
+  <div class="container offline">
+    <div class="offline__copy">
+      <h2 id="h-off">Wi-Fi off? Tito keeps working</h2>
+      <p class="lead">Download a pack once. After that, nothing leaves your PC.</p>
+      <div class="offline__stage" aria-hidden="true"><img class="offline__wifi" src="/3d/wifi.webp" width="400" height="400" alt=""><div class="offline__pet" id="offPet"></div></div>
+    </div>
+    <ul class="packs">
+      <li class="pack"><i data-i="cpu"></i><div><h3>Offline AI</h3><p>Qwen3 0.6B explains and summarizes text.</p><span class="bar" style="--w: 100%"><i></i></span></div><b class="num"><span data-count="397">397</span> MB</b></li>
+      <li class="pack"><i data-i="translate"></i><div><h3>Hindi translation</h3><p>English and Hindi, both ways.</p><span class="bar" style="--w: 56%"><i></i></span></div><b class="num"><span data-count="222">222</span> MB</b></li>
+      <li class="pack"><i data-i="text-aa"></i><div><h3>Text reader</h3><p>Built into Windows. Nothing to install.</p><span class="bar" style="--w: 4%"><i></i></span></div><b class="num"><span data-count="0">0</span> MB</b></li>
+    </ul>
+  </div>
+</section>
+
+<!-- 7. PROVIDERS -->
+<section class="slab slab--rose" id="keys" aria-labelledby="h-keys">
+  <div class="container keys-sec">
+    <div>
+      <h2 id="h-keys">Bring any AI key</h2>
+      <p class="lead">Tito finds the newest model, tests it with a picture and switches when one is retired.</p>
+      <ul class="providers">
+        <li class="chip">Google Gemini <b>free</b></li><li class="chip">Groq <b>free</b></li><li class="chip">OpenRouter <b>free models</b></li>
+        <li class="chip">OpenAI</li><li class="chip">xAI</li><li class="chip">Any OpenAI-compatible API</li>
+      </ul>
+    </div>
+    <div class="probe-wrap">
+      <img class="probe__key" src="/3d/key.webp" width="400" height="400" alt="" aria-hidden="true" loading="lazy">
+      <ol class="probe clay" id="probe" aria-label="What Tito does when you paste a key">
+        <li><i data-i="key"></i>Recognises the provider from the key</li>
+        <li><i data-i="clipboard-text"></i>Lists the models it offers today</li>
+        <li><i data-i="image-square"></i>Tests each one with a tiny picture</li>
+        <li><i data-i="check-circle"></i>Uses the best one, and rechecks daily</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- 8. SETUP -->
+<section class="slab slab--butter2" id="setup" aria-labelledby="h-setup">
+  <div class="container">
+    <h2 id="h-setup">Set up in five steps</h2>
+    <ol class="steps">
+      <li class="step clay"><img class="step__3d" src="/3d/folder.webp" width="400" height="400" alt="" loading="lazy"><b class="step__n">1</b><h3>Download</h3><p>Get the installer from the <a href="https://github.com/Ayushkumarpatel-AKP/tito/releases/latest">releases page</a>.</p></li>
+      <li class="step clay"><img class="step__3d" src="/3d/play.webp" width="400" height="400" alt="" loading="lazy"><b class="step__n">2</b><h3>Run it</h3><p>Tito says hello, then lives in your tray and starts with Windows.</p></li>
+      <li class="step clay"><img class="step__3d" src="/3d/key.webp" width="400" height="400" alt="" loading="lazy"><b class="step__n">3</b><h3>Paste a free key</h3><p>Open Settings and paste one from <a href="https://aistudio.google.com/apikey">Gemini</a> or <a href="https://console.groq.com/keys">Groq</a>.</p></li>
+      <li class="step clay"><img class="step__3d" src="/3d/flash.webp" width="400" height="400" alt="" loading="lazy"><b class="step__n">4</b><h3>Press the shortcut</h3><p><span class="kbd">Ctrl</span> <span class="kbd">Shift</span> <span class="kbd">Space</span>, then draw around anything.</p></li>
+      <li class="step clay"><img class="step__3d" src="/3d/setting.webp" width="400" height="400" alt="" loading="lazy"><b class="step__n">5</b><h3>Add offline packs</h3><p>Optional. Download them in Settings if you want Tito offline.</p></li>
+    </ol>
+    <div class="source clay">
+      <h3>Prefer to build it yourself?</h3>
+      <pre class="code" id="srcCode"><code>git clone https://github.com/Ayushkumarpatel-AKP/tito.git
+cd tito
+npm install
+npm start</code></pre>
+      <button class="btn btn--ghost btn--sm" id="copySrc" type="button"><i data-i="copy"></i><span>Copy commands</span></button>
+    </div>
+  </div>
+</section>
+
+<!-- 9. FAQ -->
+<section class="slab slab--lilac2" id="faq" aria-labelledby="h-faq">
+  <div class="container faq">
+    <h2 id="h-faq">Questions people ask</h2>
+    <div class="faq__list">
+      <details class="clay"><summary>Is Tito free?</summary><p>Yes, and the code is open. The AI keys you paste come with their own free tiers from Gemini and Groq.</p></details>
+      <details class="clay"><summary>Does my screen get uploaded?</summary><p>Only the part you select goes to the AI you chose, nothing else. In offline mode nothing leaves your PC. Keys are encrypted on your machine.</p></details>
+      <details class="clay"><summary>Which languages can it translate?</summary><p>Hindi, Marathi, Bengali, Tamil, Telugu, Gujarati, Kannada, Malayalam, Punjabi, Urdu and more online. Offline covers English and Hindi.</p></details>
+      <details class="clay"><summary>How big is it?</summary><p>About 350 MB installed. The offline packs are optional and download separately.</p></details>
+      <details class="clay"><summary>Mac or Linux?</summary><p>Windows only for now.</p></details>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="slab slab--night foot" id="foot" aria-labelledby="h-foot">
+  <div class="container foot__grid">
+    <div>
+      <h2 id="h-foot">Say hello to Tito</h2>
+      <div class="actions">
+        <a class="btn btn--primary" data-magnet href="https://github.com/Ayushkumarpatel-AKP/tito/releases/latest"><i data-i="windows-logo"></i>Download for Windows</a>
+        <a class="btn btn--night" data-magnet href="https://github.com/Ayushkumarpatel-AKP/tito"><i data-i="github-logo"></i>Star on GitHub</a>
+      </div>
+      <p class="foot__fine">Made by <a href="https://enigmadev.tech">Ayush Kumar Patel</a>. 3D icons from 3dicons.co (CC0), icons by Phosphor, fonts Bagel Fat One and Nunito, all open licensed.</p>
+    </div>
+    <div class="foot__pet" id="footPet" aria-hidden="true"></div>
+  </div>
+</footer>
+
+<div class="buddy" id="buddy" aria-hidden="true">
+  <div class="buddy__bubble" id="buddyBubble"></div>
+  <button class="buddy__pet" id="buddyPet" type="button" tabindex="-1"></button>
+</div>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
