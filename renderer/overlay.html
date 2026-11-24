@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'">
+<title>Tito</title>
+<link rel="stylesheet" href="clay.css">
+<link rel="stylesheet" href="overlay.css">
+</head>
+<body>
+  <div id="bg"></div>
+  <canvas id="cv"></canvas>
+
+  <div id="barWrap">
+    <div id="bar" class="clay-pill">
+      <button class="tool on" data-mode="draw" title="Draw around anything (D)"><i class="ic ic-pink" data-i="scribble-loop"></i><span>Draw</span></button>
+      <button class="tool" data-mode="box" title="Drag a box (B)"><i class="ic ic-sky" data-i="selection"></i><span>Box</span></button>
+      <button class="tool" id="tScreen" title="Ask about the whole screen"><i class="ic ic-mint" data-i="monitor"></i><span>Whole screen</span></button>
+      <i class="sep"></i>
+      <button class="tool icon" id="tUndo" title="Undo (Ctrl+Z)"><i class="ic ic-lav" data-i="arrow-u-up-left"></i></button>
+      <button class="tool icon" id="tClose" title="Close (Esc)"><i class="ic ic-coral" data-i="x"></i></button>
+    </div>
+    <div id="hintLine" class="clay-pill">Draw around anything on your screen</div>
+  </div>
+
+  <!-- Tito waiting in the corner while you choose what to ask about -->
+  <div id="buddy">
+    <div id="bubble" class="clay-pill"></div>
+    <div id="buddyPet" class="pet"><div class="shadow"></div></div>
+  </div>
+
+  <!-- answer card -->
+  <div id="card" class="clay" hidden>
+    <div id="cardPet" class="pet"><div class="shadow"></div></div>
+    <div class="chead">
+      <span id="viaTag" class="tag"></span>
+      <span class="grow"></span>
+      <button class="ibtn" id="aSize" data-tip="Text size"><i class="ic ic-sky" data-i="text-aa"></i></button>
+      <button class="ibtn" id="cardX" data-tip="Close"><i class="ic ic-ink" data-i="x"></i></button>
+    </div>
+    <h3 id="title"></h3>
+    <div id="body" class="body">
+      <div id="skeleton"><div class="shimmer l1"></div><div class="shimmer l2"></div><div class="shimmer l3"></div></div>
+      <div id="answer" class="answer"></div>
+      <div id="note" class="note" hidden></div>
+    </div>
+    <div id="chips" class="chips"></div>
+
+    <div class="tools">
+      <div class="seg" id="qa">
+        <button data-act="explain" data-tip="Explain"><i class="ic ic-pink" data-i="sparkle"></i><span>Explain</span></button>
+        <button data-act="translate" data-tip="Translate"><i class="ic ic-sky" data-i="translate"></i><span>Translate</span></button>
+        <button data-act="summarize" data-tip="Summarize"><i class="ic ic-mint" data-i="list-bullets"></i><span>Summarize</span></button>
+        <button data-act="solve" data-tip="Solve"><i class="ic ic-butter" data-i="calculator"></i><span>Solve</span></button>
+        <button data-act="fix" data-tip="Fix an error"><i class="ic ic-coral" data-i="bug"></i><span>Fix</span></button>
+      </div>
+      <select id="styleSel" title="Explanation style">
+        <option value="kid">Simple</option><option value="teen">Student</option><option value="expert">Expert</option><option value="meme">Fun</option>
+      </select>
+    </div>
+
+    <div class="askrow">
+      <input id="q" type="text" placeholder="Ask a follow-up question" maxlength="300" autocomplete="off">
+      <button id="send" class="btn primary small" data-tip="Send"><i class="ic ic-white" data-i="paper-plane-tilt"></i></button>
+    </div>
+    <div class="acts">
+      <button class="act" id="aCopy" data-tip="Copy answer"><i class="ic ic-lav" data-i="copy"></i></button>
+      <button class="act" id="aGrab" data-tip="Copy text from selection"><i class="ic ic-sky" data-i="text-aa"></i></button>
+      <button class="act" id="aListen" data-tip="Read aloud"><i class="ic ic-mint" data-i="speaker-high"></i></button>
+      <button class="act" id="aSearch" data-tip="Search the web"><i class="ic ic-butter" data-i="magnifying-glass"></i></button>
+      <button class="act" id="aShare" data-tip="Make a shareable image"><i class="ic ic-pink" data-i="image-square"></i></button>
+      <button class="act" id="aPdf" data-tip="Save as PDF"><i class="ic ic-coral" data-i="file-pdf"></i></button>
+      <button class="act" id="aAgain" data-tip="Ask again"><i class="ic ic-coral" data-i="arrow-clockwise"></i></button>
+    </div>
+    <div id="toast" class="mini-toast" hidden></div>
+  </div>
+
+  <script src="icons.js"></script>
+  <script src="../assets/tito/manifest.js"></script>
+  <script src="sprite.js"></script>
+  <script src="overlay.js"></script>
+</body>
+</html>

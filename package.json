@@ -1,0 +1,66 @@
+{
+  "name": "tito",
+  "version": "1.0.0",
+  "description": "Tito - a cute desktop companion. Press a hotkey, circle anything on your screen, Tito explains it.",
+  "main": "main.js",
+  "author": "Ayush",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "selftest": "electron . --selftest",
+    "dist": "electron-builder --win nsis"
+  },
+  "build": {
+    "appId": "com.ayush.tito",
+    "productName": "Tito",
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**",
+      "renderer/**",
+      "assets/**",
+      "package.json",
+      "!assets/sprites/**",
+      "!assets/wave/**",
+      "!**/*.part",
+      "!node_modules/@node-llama-cpp/win-x64-cuda*/**",
+      "!node_modules/@node-llama-cpp/win-x64-vulkan/**",
+      "!node_modules/@node-llama-cpp/win-arm64/**",
+      "!node_modules/onnxruntime-web/**",
+      "!node_modules/onnxruntime-node/bin/napi-v6/linux/**",
+      "!node_modules/onnxruntime-node/bin/napi-v6/darwin/**",
+      "!node_modules/onnxruntime-node/bin/napi-v6/win32/arm64/**",
+      "!node_modules/onnxruntime-node/bin/napi-v6/win32/x64/DirectML.dll",
+      "!node_modules/onnxruntime-node/bin/napi-v6/win32/x64/dxcompiler.dll",
+      "!node_modules/node-llama-cpp/llama/gitRelease.bundle"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true
+    },
+    "asarUnpack": [
+      "node_modules/node-llama-cpp/**",
+      "node_modules/@node-llama-cpp/win-x64/**",
+      "node_modules/onnxruntime-node/**",
+      "src/ocr.ps1",
+      "src/probe.png.b64"
+    ],
+    "electronLanguages": [
+      "en-US"
+    ]
+  },
+  "devDependencies": {
+    "@phosphor-icons/core": "^2.1.1",
+    "electron": "^33.4.11",
+    "electron-builder": "^26.18.0"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.3.2",
+    "node-llama-cpp": "^3.22.3"
+  }
+}

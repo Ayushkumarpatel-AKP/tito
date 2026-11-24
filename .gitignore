@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.part
+.remember/
+assets/sprites/
+assets/wave/
+website/node_modules/

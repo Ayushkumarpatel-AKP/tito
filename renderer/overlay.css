@@ -1,0 +1,88 @@
+html, body { overflow: hidden; background: #1b1530; user-select: none; }
+#bg { position: fixed; inset: 0; background-size: 100% 100%; background-repeat: no-repeat; transform: scale(1.012); transition: transform .45s cubic-bezier(.2,.8,.2,1); }
+body.show #bg { transform: scale(1); }
+#cv { position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+
+.xbtn { border: 0; background: transparent; cursor: pointer; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; transition: transform .2s var(--spring), background .2s; }
+.xbtn:hover { background: rgba(255,159,194,.35); transform: rotate(90deg) scale(1.1); }
+
+/* ---------- top toolbar ---------- */
+#barWrap { position: fixed; top: 18px; left: 50%; transform: translate(-50%, -110px); display: flex; flex-direction: column; align-items: center; gap: 10px; transition: transform .6s var(--spring); z-index: 6; }
+body.show #barWrap { transform: translate(-50%, 0); }
+#bar { display: flex; align-items: center; gap: 4px; padding: 6px; cursor: default; }
+.tool { border: 0; background: transparent; cursor: pointer; display: flex; align-items: center; gap: 7px; font-weight: 800; font-size: 14px; padding: 9px 15px; border-radius: 999px; color: var(--ink2); transition: transform .2s var(--spring), background .2s, color .2s; }
+.tool.icon { padding: 9px 11px; }
+.tool:hover { background: rgba(255,255,255,.75); transform: translateY(-2px); color: var(--ink); }
+.tool.on { background: linear-gradient(170deg, #ffd3e4, #ffb4d0); color: var(--ink); box-shadow: 0 2px 0 rgba(255,255,255,.9) inset, 0 3px 8px rgba(255,100,160,.3); }
+.sep { width: 2px; height: 22px; border-radius: 2px; background: #ecd5e6; margin: 0 4px; }
+#hintLine { padding: 7px 16px; font-size: 13px; font-weight: 700; color: var(--ink2); transition: opacity .3s, transform .4s var(--spring); }
+body.drawn #hintLine, body.drawing #hintLine { opacity: 0; transform: translateY(-10px); pointer-events: none; }
+
+/* ---------- Tito in the corner ---------- */
+#buddy { pointer-events: none; position: fixed; right: 30px; bottom: 22px; width: 190px; height: 190px; transition: transform .55s var(--spring), opacity .3s; }
+#buddy .pet { position: absolute; inset: 0; transform-origin: 50% 100%; }
+body:not(.show) #buddy { transform: translateY(120px) scale(.7); opacity: 0; }
+body.drawn #buddy, body.drawing #buddy { transform: translateX(40px) translateY(30px) scale(.6); opacity: 0; }
+#bubble { position: absolute; right: 0; top: -58px; max-width: 250px; padding: 9px 15px; font-size: 13.5px; font-weight: 700; line-height: 1.25; border-radius: 20px 20px 6px 20px; transform-origin: 90% 100%; animation: popin .5s var(--spring) both; }
+
+/* ---------- answer card ---------- */
+#card { --read: 1; position: fixed; left: 0; top: 0; width: 420px; padding: 12px 16px 14px; transition: left .38s cubic-bezier(.2,.9,.25,1.15), top .38s cubic-bezier(.2,.9,.25,1.15); cursor: default; user-select: text; z-index: 5; }
+#card.pop { animation: popin .55s var(--spring) both; }
+#cardPet { position: absolute; left: 12px; bottom: calc(100% - 22px); width: 120px; height: 128px; pointer-events: none; z-index: -1; }
+.chead { display: flex; align-items: center; gap: 4px; min-height: 30px; margin-bottom: 4px; }
+.grow { flex: 1; }
+.ibtn { border: 0; background: transparent; cursor: pointer; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; position: relative; transition: transform .2s var(--spring), background .2s; }
+.ibtn:hover { background: rgba(255,159,194,.3); transform: scale(1.1); }
+.ibtn i.ic { font-size: 18px; }
+.tag { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; background: var(--mint); color: #1f7a5c; }
+.tag:empty { display: none; }
+.tag.off { background: var(--butter); color: #86670d; } .tag.demo { background: var(--lav2); color: #6a4fc4; }
+
+#title { margin: 0 0 8px; font-size: calc(19px * var(--read)); font-weight: 800; line-height: 1.2; color: #2b1c44; }
+
+/* the answer scrolls on its own, so a long reply never pushes the controls off screen */
+.body { max-height: min(44vh, 400px); overflow-y: auto; margin: 0 -8px 8px 0; padding-right: 8px; scrollbar-width: thin; scrollbar-color: #e3c9e6 transparent; }
+.body::-webkit-scrollbar { width: 6px; } .body::-webkit-scrollbar-thumb { background: #e3c9e6; border-radius: 6px; }
+.answer { font-size: calc(15.5px * var(--read)); line-height: 1.62; font-weight: 600; color: #3a2a56; letter-spacing: .003em; }
+.answer p { margin: 0 0 .75em; animation: lineIn .5s var(--spring) both; }
+.answer ul, .answer ol { margin: .1em 0 .75em; padding-left: 1.3em; }
+.answer li { margin: .3em 0; padding-left: .15em; animation: lineIn .5s var(--spring) both; }
+.answer li::marker { color: var(--pink); font-weight: 800; }
+.answer strong { font-weight: 800; color: #2b1c44; }
+.answer code { font-weight: 400; }
+.answer code { font: .9em Consolas, 'Cascadia Mono', monospace; background: #f6e8f3; color: #8a2f66; padding: 1px 6px; border-radius: 7px; }
+@keyframes lineIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+#skeleton { display: grid; gap: 9px; margin: 6px 0 10px; }
+#skeleton .shimmer { height: 13px; } .l1 { width: 100%; } .l2 { width: 88%; } .l3 { width: 60%; }
+.note { font-size: 12.5px; font-weight: 700; color: #86670d; background: #fff3cc; border-radius: 14px; padding: 8px 12px; margin: 4px 0 6px; }
+
+/* follow-up suggestions: one tidy row that scrolls sideways */
+.chips { display: flex; gap: 6px; overflow-x: auto; flex-wrap: nowrap; margin: 0 -16px 10px; padding: 2px 16px 4px; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; } .chips:empty { display: none; }
+.chips .chip { flex: none; white-space: nowrap; font-size: 12.5px; padding: 6px 12px; display: inline-flex; align-items: center; }
+
+/* tools: what to do with the selection, plus the explanation style */
+.tools { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 10px; flex-wrap: nowrap; }
+.seg { display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: #f8e7ef; box-shadow: inset 0 2px 5px rgba(110,70,160,.14); }
+.seg button { position: relative; border: 0; background: transparent; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 7px 8px; border-radius: 999px; font-weight: 800; font-size: 13px; color: var(--ink2); transition: background .2s, transform .18s var(--spring); }
+.seg button i.ic { font-size: 18px; } .seg button span { display: none; }
+.seg button:hover { background: rgba(255,255,255,.7); transform: translateY(-1px); }
+.seg button.on { background: linear-gradient(170deg, #fff, #ffe3ef); color: var(--ink); box-shadow: 0 2px 0 #fff inset, 0 3px 8px rgba(255,100,160,.25); }
+.seg button.on span { display: inline; }
+#styleSel { width: auto; flex: none; min-width: 0; padding: 8px 8px 8px 12px; border-radius: 999px; font-size: 13px; font-weight: 800; cursor: pointer; color: var(--ink2); }
+
+.askrow { display: flex; gap: 8px; margin-bottom: 10px; }
+.askrow input { padding: 10px 15px; }
+.askrow .btn { padding: 0 15px; display: grid; place-items: center; }
+.askrow .btn i.ic { margin: 0; font-size: 1.3em; }
+
+/* actions: compact icon row, labels appear as tooltips */
+.acts { display: flex; justify-content: space-between; gap: 6px; }
+.act { position: relative; flex: 1; height: 40px; border: 0; cursor: pointer; display: grid; place-items: center; border-radius: 16px; background: linear-gradient(170deg, #fffaf6, #fff0e6); box-shadow: 0 2px 0 #fff inset, 0 -4px 8px rgba(255,150,185,.2) inset, 0 3px 8px rgba(95,60,150,.16); transition: transform .18s var(--spring); }
+.act i.ic { font-size: 22px; } .act:hover { transform: translateY(-3px); } .act:active { transform: scale(.94); }
+[data-tip]::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%) scale(.9); opacity: 0; pointer-events: none; z-index: 9; background: var(--ink); color: #fff; font: 800 11.5px 'Nunito', sans-serif; padding: 5px 10px; border-radius: 9px; white-space: nowrap; transition: opacity .15s, transform .15s var(--spring); }
+[data-tip]:hover::after { opacity: 1; transform: translateX(-50%) scale(1); transition-delay: .35s; }
+.chead [data-tip]::after { bottom: auto; top: calc(100% + 6px); }
+
+.mini-toast { position: absolute; left: 50%; bottom: -46px; transform: translateX(-50%); white-space: nowrap; padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 800; background: var(--ink); color: #fff; animation: popin .4s var(--spring) both; }
+#card.busy .tools, #card.busy .askrow, #card.busy .acts, #card.busy .chips { opacity: .45; pointer-events: none; }

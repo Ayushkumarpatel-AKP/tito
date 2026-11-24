@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'">
+<title>Tito</title>
+<link rel="stylesheet" href="clay.css">
+<link rel="stylesheet" href="settings.css">
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><div id="logoPet" class="pet logo"></div><div><b>Tito</b><small>your screen buddy</small></div></div>
+    <nav>
+      <button class="nav on" data-tab="home"><i class="ic ic-pink" data-i="house"></i>Home</button>
+      <button class="nav" data-tab="notebook"><i class="ic ic-sky" data-i="notebook"></i>Notebook</button>
+      <button class="nav" data-tab="settings"><i class="ic ic-lav" data-i="gear-six"></i>Settings</button>
+    </nav>
+    <div class="ver" id="ver"></div>
+  </aside>
+
+  <main>
+    <!-- HOME -->
+    <section id="tab-home" class="tab on">
+      <div class="home">
+        <div class="stage clay"><div id="bigPet" class="pet big float"><div class="shadow"></div></div><div id="petSay" class="say clay-pill">Click me</div></div>
+        <div class="homeinfo">
+          <h1>Hi, I am <span class="grad">Tito</span></h1>
+          <p class="lead">See something on your screen you do not get? Press the shortcut, draw around it, and I will explain it.</p>
+          <div class="hk"><kbd id="hkShow"></kbd><button class="btn primary" id="tryBtn"><i class="ic ic-white" data-i="magic-wand"></i>Try it now</button></div>
+          <div class="status" id="status"></div>
+          <div class="xp clay"><div class="xpTop"><b id="lvName"></b><span id="xpNum"></span></div><div class="bar"><i id="xpBar"></i></div></div>
+          <div class="tips clay">
+            <div class="tip"><i class="ic ic-pink" data-i="scribble-loop"></i><div><b>Draw</b><span>Loop around anything</span></div></div>
+            <div class="tip"><i class="ic ic-sky" data-i="selection"></i><div><b>Box</b><span>Drag, then resize with handles</span></div></div>
+            <div class="tip"><i class="ic ic-mint" data-i="translate"></i><div><b>Translate</b><span>One click, any text</span></div></div>
+            <div class="tip"><i class="ic ic-butter" data-i="text-aa"></i><div><b>Grab text</b><span>Copy text from images, offline</span></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- NOTEBOOK -->
+    <section id="tab-notebook" class="tab">
+      <div class="nbHead"><h2>Notebook</h2><input id="nbSearch" type="text" placeholder="Search what you asked about"><button class="btn small mint" id="nbExport"><i class="ic ic-mint" data-i="download-simple"></i>Markdown</button><button class="btn small lav" id="nbPdf"><i class="ic ic-lav" data-i="file-pdf"></i>PDF</button><button class="btn small" id="nbClear"><i class="ic ic-coral" data-i="trash"></i>Clear all</button></div>
+      <div id="nbList" class="nbList"></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="tab-settings" class="tab">
+      <h2>Settings</h2>
+
+      <div class="card clay"><h3><i class="ic ic-pink" data-i="brain"></i>How Tito thinks</h3>
+        <div class="modes" id="modes"></div>
+      </div>
+
+      <div class="card clay"><h3><i class="ic ic-sky" data-i="globe"></i>AI provider <span class="sub">bring any key, Tito picks the best model</span></h3>
+        <div class="row" id="provRow"></div>
+        <div class="row"><input id="keyIn" type="password" placeholder="Paste your API key" autocomplete="off"><button class="btn primary small" id="keySave">Save</button></div>
+        <div class="row" id="customRow" hidden><input id="baseIn" type="text" placeholder="Base URL, for example https://api.together.xyz/v1" spellcheck="false"><input id="customModelIn" type="text" placeholder="Model name (must accept images)" spellcheck="false"></div>
+        <div class="row"><a class="link" id="getKey"></a><span id="keyMsg" class="msg"></span></div>
+        <label class="lab">Model</label>
+        <div class="row"><select id="modelSel"></select><button class="btn small" id="modelRefresh"><i class="ic ic-lav" data-i="magic-wand"></i>Find best model</button><button class="btn small" id="keyTest"><i class="ic ic-mint" data-i="check-circle"></i>Test</button></div>
+        <p class="hint" id="modelInfo"></p>
+        <p class="hint" id="provHint"></p>
+        <p class="hint">Paste a key from any supported service and Tito recognises it, finds the newest image-capable model that works and tests it with a small picture. If a model is ever retired, Tito finds a replacement on its own. With several keys saved, Tito switches provider automatically when one is busy or out of free quota.</p>
+      </div>
+
+      <div class="card clay"><h3><i class="ic ic-sky" data-i="translate"></i>Translation</h3>
+        <label class="lab">Translate with</label>
+        <select id="trEngine">
+          <option value="auto">Automatic: AI first, then MyMemory, then offline</option>
+          <option value="ai">AI model only (most accurate)</option>
+          <option value="mymemory">MyMemory (free online service)</option>
+          <option value="offline">Offline pack (English and Hindi)</option>
+        </select>
+        <label class="lab">My language (English text is translated into this, everything else into English)</label>
+        <select id="trTo"></select>
+        <p class="hint">MyMemory is free and needs no key. It is quick and covers all major Indian languages, but its quality varies, so the AI is the default. Offline translation covers English and Hindi.</p>
+      </div>
+
+      <div class="card clay"><h3><i class="ic ic-butter" data-i="cloud-arrow-down"></i>Offline packs <span class="sub">downloaded once, kept on this PC</span></h3>
+        <div class="offline" id="offStatus"></div>
+        <div id="packList"></div>
+        <p class="hint">Without a pack, offline mode still reads your selection with the text reader built into Windows. Packs are optional, so the installer stays small.</p>
+      </div>
+
+      <div class="card clay"><h3><i class="ic ic-pink" data-i="brain"></i>Memory</h3>
+        <label class="switch"><input type="checkbox" id="swMem"><span></span>Tito remembers my recent topics</label>
+        <div class="row" style="margin-top:12px"><span id="memInfo" class="msg ok"></span><button class="btn small" id="memForget"><i class="ic ic-coral" data-i="broom"></i>Forget everything</button></div>
+        <p class="hint">Tito keeps the titles of your recent questions so follow-ups and answers stay relevant. It is stored only on this PC and never uploaded except as a short note inside your AI request.</p>
+      </div>
+
+      <div class="card clay"><h3><i class="ic ic-lav" data-i="mask-happy"></i>Personality</h3>
+        <div class="persona" id="persona"></div>
+        <label class="lab">Answer language</label><div class="row" id="langRow"></div>
+        <label class="lab">Default explanation style</label><div class="row" id="levelRow"></div>
+      </div>
+
+      <div class="card clay"><h3><i class="ic ic-mint" data-i="keyboard"></i>Shortcut and startup</h3>
+        <label class="lab">Summon shortcut (click the box, then press your keys)</label>
+        <div class="row"><input id="hkIn" type="text" readonly><span id="hkMsg" class="msg"></span></div>
+        <label class="switch"><input type="checkbox" id="swLogin"><span></span>Start Tito when Windows starts</label>
+        <label class="switch"><input type="checkbox" id="swGreet"><span></span>Say hello when Tito wakes up</label>
+        <label class="switch"><input type="checkbox" id="swCtx"><span></span>Also send the whole screen for context (more accurate, uses more of your free limit)</label>
+      </div>
+      <div style="height:24px"></div>
+    </section>
+  </main>
+</div>
+<div id="toast" class="stoast" hidden></div>
+<script src="icons.js"></script>
+<script src="../assets/tito/manifest.js"></script>
+<script src="sprite.js"></script>
+<script src="settings.js"></script>
+</body>
+</html>
