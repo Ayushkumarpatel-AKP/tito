@@ -62,7 +62,7 @@ async function post(url, headers, body, timeout = TIMEOUT_MS) {
 }
 
 // ------------------------------------------------------------------ one model, one request
-async function callOpenAI({ base, id, apiKey, model, system, images, turns, raw }) {
+async function callOpenAI({ base, id, apiKey, model, system, images, turns, raw, maxTokens }) {
   const messages = [{ role: 'system', content: system }, ...turns.map((t, i) => ({
     role: t.role,
     content: i === 0 && t.role === 'user'
@@ -70,8 +70,8 @@ async function callOpenAI({ base, id, apiKey, model, system, images, turns, raw 
       : t.text,
   }))];
   const body = { model, messages };
-  if (id === 'openai') body.max_completion_tokens = 900;          // newer OpenAI models reject max_tokens / temperature
-  else { body.max_tokens = 700; body.temperature = 0.7; }
+  if (id === 'openai') body.max_completion_tokens = maxTokens || 900;          // newer OpenAI models reject max_tokens / temperature
+  else { body.max_tokens = maxTokens || 700; body.temperature = 0.7; }
   if (id === 'groq' && /qwen/i.test(model)) body.reasoning_effort = 'none';   // skip "thinking": much faster
   const j = await post(base + '/chat/completions', { authorization: 'Bearer ' + apiKey, 'x-title': 'Tito' }, body);
   const text = j?.choices?.[0]?.message?.content;
@@ -80,7 +80,7 @@ async function callOpenAI({ base, id, apiKey, model, system, images, turns, raw 
   return raw ? { answer: String(t).trim(), raw: true } : parseReply(t);
 }
 
-async function callGemini({ apiKey, model, system, images, turns, raw }) {
+async function callGemini({ apiKey, model, system, images, turns, raw, maxTokens, rawJson }) {
   const contents = turns.map((t, i) => ({
     role: t.role === 'assistant' ? 'model' : 'user',
     parts: [
@@ -91,7 +91,7 @@ async function callGemini({ apiKey, model, system, images, turns, raw }) {
   const j = await post(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
     { 'x-goog-api-key': apiKey },
-    { systemInstruction: { parts: [{ text: system }] }, contents, generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 700, temperature: 0.7 } },
+    { systemInstruction: { parts: [{ text: system }] }, contents, generationConfig: { ...(raw && rawJson === false ? {} : { responseMimeType: 'application/json' }), maxOutputTokens: maxTokens || 700, temperature: 0.7 } },
     GEMINI_TIMEOUT_MS,
   );
   const text = j?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
@@ -106,7 +106,7 @@ const skippable = (e) => e.code === 'empty' || e.code === 'timeout' || (e.code =
  * images: [{mime, data(base64)}] attached to the first user turn. turns: [{role:'user'|'assistant', text}]
  * Tries the pinned model, then the auto-discovered best models; if every one fails it re-discovers once (models get retired).
  */
-async function ask({ settings, provider, apiKey, images, turns, cache, rawSystem }) {
+async function ask({ settings, provider, apiKey, images, turns, cache, rawSystem, rawJson, maxTokens }) {
   const P = PROVIDERS[provider];
   if (!P) throw new AiError('config', 'Unknown provider: ' + provider);
   if (!apiKey) throw new AiError('nokey', 'No API key set.');
@@ -122,7 +122,7 @@ async function ask({ settings, provider, apiKey, images, turns, cache, rawSystem
     for (const model of list) {
       if (tried.has(model)) continue; tried.add(model);
       try {
-        const r = P.kind === 'gemini' ? await callGemini({ apiKey, model, system, images, turns, raw }) : await callOpenAI({ base, id: provider, apiKey, model, system, images, turns, raw });
+        const r = P.kind === 'gemini' ? await callGemini({ apiKey, model, system, images, turns, raw, maxTokens, rawJson }) : await callOpenAI({ base, id: provider, apiKey, model, system, images, turns, raw, maxTokens });
         return { ...r, model };
       } catch (e) { lastErr = e; if (!skippable(e)) throw e; }
     }

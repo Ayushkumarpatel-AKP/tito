@@ -18,7 +18,7 @@ const cases = [
   ['agla gaana', { type: 'media', action: 'next' }],
   ['volume up', { type: 'media', action: 'volup' }],
   ['search black hole', { type: 'search', query: 'black hole' }],
-  ['black hole ke baare mein batao', { type: 'search', query: 'black hole' }],
+  ['black hole ke baare mein batao', { type: 'ask', query: 'black hole' }],
   ['maine lunch kha liya', { type: 'routine', name: 'Lunch' }],
   ['i drank water', { type: 'routine', name: 'Drink water' }],
   ['quiz me', { type: 'quiz' }],
@@ -62,6 +62,13 @@ for (const q of earlyCases) {
   const got = parse(q, early); const when = got.at ? new Date(got.at) : null;
   if (!when || when.getHours() !== 1 || when.getMinutes() !== 5 || when.getDate() !== 26) { bad++; console.log('FAIL', JSON.stringify(q), 'got', got.at ? at(got) : got.type); }
 }
+upkeep.push(
+  ['https://youtu.be/dQw4w9WgXcQ?si=abc', { type: 'play', source: 'youtube' }], ['play https://www.youtube.com/watch?v=dQw4w9WgXcQ', { type: 'play', source: 'youtube' }],
+  ['https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC', { type: 'play', source: 'spotify' }], ['https://unstop.com/hackathons', { type: 'open' }],
+  ['open unstop', { type: 'open_site', name: 'unstop' }], ['open unstop website', { type: 'open_site', name: 'unstop' }], ['unstop kholo', { type: 'open_site', name: 'unstop' }],
+  ['open unstop at 5 pm', { type: 'reminder', openName: 'unstop' }], ['open youtube', { type: 'open' }],
+  ['teach tito photosynthesis', { type: 'teach', topic: 'photosynthesis' }], ['let me teach you newton laws', { type: 'teach', topic: 'newton laws' }], ['feynman mode', { type: 'teach', topic: '' }],
+);
 for (const [s, want] of upkeep) {
   const got = parse(s, now); const flat = { ...got, at: got.at ? at(got) : '' }; const ok = Object.entries(want).every(([k, v]) => flat[k] === v);
   if (!ok) { bad++; console.log('FAIL', JSON.stringify(s), '\n   want', JSON.stringify(want), '\n   got ', JSON.stringify(flat)); }

@@ -301,7 +301,7 @@ app.whenReady().then(async () => {
 
   const ok = registerHotkey(s.hotkey);
   if (!ok) showToast({ state: 'error', text: `${prettyKey(s.hotkey)} is already used by another app. Pick a new shortcut in Settings.` });
-  else if (s.greetOnStart && !SELFTEST) showToast({ state: 'greeting', text: `Tito is awake. Press ${prettyKey(s.hotkey)} and circle anything on your screen.` });
+  else if (s.greetOnStart && !SELFTEST && s.dockOn === false) showToast({ state: 'greeting', text: `Tito is awake. Press ${prettyKey(s.hotkey)} and circle anything on your screen.` });
 
   if (!LAUNCHED_AT_LOGIN && !SELFTEST) openSettings('home');
   setupUpdates();

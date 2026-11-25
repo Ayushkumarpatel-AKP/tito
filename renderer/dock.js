@@ -33,15 +33,19 @@
     clearTimeout(bubbleT); if (ms) bubbleT = setTimeout(hideBubble, ms);
   }
   function hideBubble() { $('bubble').hidden = true; T.dock.bubble(false); }
+  let replyT = 0;
   function reply(text, buttons) {
-    const r = $('reply'); r.textContent = ''; r.hidden = !text; if (!text) return; r.append(text);
+    const r = $('reply'); clearTimeout(replyT); r.textContent = ''; r.hidden = !text || (tab === 'chat' && !(buttons && buttons.length)); if (!text) return; r.append(text);
     if (buttons && buttons.length) { const row = el('div', 'alertbtns'); for (const [label, fn] of buttons) { const b = el('button', 'chip', label); b.onclick = fn; row.append(b); } r.append(row); }
+    else replyT = setTimeout(() => { r.hidden = true; }, 6500);               // a plain message fades by itself; one with buttons waits for you
   }
 
   // ---------------------------------------------------------------- layout, drag, open / close
   T.dock.state().then((st) => { quiet = !!st.quiet; S = st.settings; window.TitoSfx.enable(!quiet && S.sounds !== false); });
   T.on('settings:changed', (s) => { S = s; window.TitoSfx.enable(!quiet && s.sounds !== false); });
-  T.on('dock:layout', ({ open, side }) => { if (open && window.TitoSfx.isRinging()) window.TitoSfx.stopRing(); if (open !== wasOpen) sfx(open ? 'open' : 'close', 0.35); wasOpen = open; if (open) $('bubble').hidden = true; isOpen = open; root.className = (open ? 'open ' : 'closed ') + side; $('panel').hidden = !open; if (open) { T.dock.data().then(setData); showAlert(); } });
+  let isPop = false, briefOn = false;
+  T.on('dock:layout', ({ open, pop, side }) => { isPop = !!pop; if (!pop) { briefOn = false; clearInterval(briefT); }
+    if (open && window.TitoSfx.isRinging()) window.TitoSfx.stopRing(); if (open !== wasOpen) sfx(open ? 'open' : 'close', 0.35); wasOpen = open; if (open) $('bubble').hidden = true; isOpen = open; root.className = (open ? 'open ' : pop ? 'pop ' : 'closed ') + side; $('panel').hidden = !open; $('pop').hidden = !pop || briefOn; $('brief').hidden = !pop || !briefOn; if (open) { T.dock.data().then(setData); showAlert(); } });
   T.dock.state().then(({ open, side }) => { isOpen = open; root.className = (open ? 'open ' : 'closed ') + side; $('panel').hidden = !open; });
   let down = null;
   $('pet').addEventListener('pointerdown', (e) => { down = { x: e.screenX, y: e.screenY, moved: false }; $('pet').setPointerCapture(e.pointerId); });
@@ -52,10 +56,12 @@
   });
   $('pet').addEventListener('pointerup', () => {
     if (!down) return; const moved = down.moved; down = null; $('pet').classList.remove('dragging');
-    if (moved) { T.dock.dragEnd(); settle(); } else { idleSecs = 0; sfx('tap', 0.4); T.dock.open(!isOpen); if (!isOpen) mood(pet.name === 'sleeping' ? 'wake_up' : 'greeting', 2800); }
+    if (moved) { T.dock.dragEnd(); settle(); return; }
+    idleSecs = 0; sfx('tap', 0.4);
+    if (isOpen) T.dock.open(false); else if (isPop) closePop(); else { openPop(''); mood(pet.name === 'sleeping' ? 'wake_up' : 'greeting', 2600); }     // a click gives the small popup; the full panel is one button away
   });
   $('btnHide').onclick = () => T.dock.open(false);          // the cross closes the panel, the pet stays (Ctrl+Shift+D hides the pet)
-  addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen) T.dock.open(false); });
+  addEventListener('keydown', (e) => { if (e.key === 'Escape') { if (isOpen) T.dock.open(false); else if (isPop) closePop(); } });
   $('qkCircle').onclick = () => T.summon();
   $('qkQuiz').onclick = () => { setTab('study'); if (!$('btnQuiz').disabled) $('btnQuiz').click(); };
   $('qkFocus').onclick = () => { setTab('study'); if (!focusing) $('btnFocus').click(); };
@@ -63,7 +69,7 @@
   T.on('dock:summon', () => { idleSecs = 0; if (!alertNow) mood('listening_wave', 2600); });
   T.on('dock:idle', (s) => { const was = asleep(); idleSecs = s; if (was && !asleep()) { sfx('wake', 0.4); mood('wake_up', 2600); } else if (!was && asleep() && !alertNow) settle(); });
   function setTab(t) {
-    tab = t || tab; $('cmdIn').placeholder = tab === 'chat' ? 'Chat with Tito, or tell him what to do...' : 'Tell Tito: remind me at 5 pm, play lofi, search...';
+    tab = t || tab; $('reply').hidden = tab === 'chat' || $('reply').hidden; placeComposer(); $('cmdIn').placeholder = tab === 'chat' ? 'Chat with Tito, or tell him what to do...' : 'Tell Tito: remind me at 5 pm, play lofi, search...';
     document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
     document.querySelectorAll('.pane').forEach((p) => p.classList.toggle('on', p.id === 'pane-' + tab));
     if (tab === 'study') refreshStudy();
@@ -168,7 +174,8 @@
     alertNow = a; idleSecs = 0;
     if (a.clip) sfx('tap', 0.5); else if (a.routine) { sfx('routine', 0.6); if (voiceOn()) setTimeout(() => window.TitoVoice.say(a.text), 900); } else startRing(a);
     mood(a.anim || 'alarm', 9000);
-    if (isOpen) showAlert(); else say(a.text, 0, alertButtons(a));          // the bubble keeps its buttons until you answer
+    if (isOpen) showAlert(); else if (isPop) { briefOn = false; $('brief').hidden = true; $('pop').hidden = false; popResult(`${a.title}: ${a.text}`, alertButtons(a)); }
+    else say(a.text, 0, alertButtons(a));          // the bubble keeps its buttons until you answer
   });
   T.on('dock:cheer', (c) => { sfx('done', 0.5); mood(c.anim, 3800); say(c.text, 3500); });
   function alertButtons(a, after) {
@@ -185,66 +192,128 @@
 
   // ---------------------------------------------------------------- commands
   $('cmd').onsubmit = (e) => { e.preventDefault(); const v = $('cmdIn').value.trim(); if (v) { $('cmdIn').value = ''; run(v); } };
+  // ---------------------------------------------------------------- small popup (for small jobs) and the greeting popup
+  function popResult(text, buttons) {
+    const r = $('popRes'); r.textContent = ''; r.hidden = !text; if (!text) return; r.append(el('div', 'ptxt', text));
+    if (buttons && buttons.length) { const row = el('div', 'alertbtns'); for (const [label, fn] of buttons) { const b = el('button', 'chip' + (label === 'Undo' ? '' : ''), label); b.onclick = fn; row.append(b); } r.append(row); }
+  }
+  function openPop(prefill, voice) { briefOn = false; T.dock.pop(true); $('popIn').value = prefill || ''; setTimeout(() => $('popIn').focus(), 90); if (voice) { voiceTarget = 'pop'; startVoice(); } }
+  function closePop() { briefOn = false; clearInterval(briefT); T.dock.pop(false); }
+  $('popForm').onsubmit = (e) => { e.preventDefault(); const v = $('popIn').value.trim(); if (!v) return; $('popIn').value = ''; run(v, { from: 'pop' }); };
+  document.querySelectorAll('#popChips [data-q]').forEach((b) => (b.onclick = () => { $('popIn').value = b.dataset.q; $('popIn').focus(); }));
+  $('popCircle').onclick = () => { closePop(); setTimeout(() => T.summon(), 120); };
+  $('popPanel').onclick = () => { closePop(); T.dock.open(true); };
+  $('popMic').onclick = () => { voiceTarget = 'pop'; startVoice(); };
+  T.on('dock:pop', (o) => { if (o && o.prefill !== undefined) openPop(o.prefill); if (o && o.voice) openPop('', true); });
+  new ResizeObserver(() => { if (isPop) T.dock.popH(Math.max($('pop').offsetHeight, $('brief').offsetHeight) + 14); }).observe($('pop'));
+  new ResizeObserver(() => { if (isPop) T.dock.popH(Math.max($('pop').offsetHeight, $('brief').offsetHeight) + 14); }).observe($('brief'));
+
+  let briefT = 0;
+  const fmtCd = (ms) => { if (ms <= 0) return 'now'; const sec = Math.floor(ms / 1000), d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600), m = Math.floor((sec % 3600) / 60); return d >= 1 ? `${d}d ${h}h` : h >= 1 ? `${h}h ${pad(m)}m` : `${pad(m)}:${pad(sec % 60)}`; };
+  function showBrief(d) {
+    briefOn = true; $('pop').hidden = true; const b = $('brief'); b.hidden = false; b.textContent = ''; clearInterval(briefT);
+    const greet = d.hour < 5 ? 'Still up' : d.hour < 12 ? 'Good morning' : d.hour < 17 ? 'Good afternoon' : d.hour < 22 ? 'Good evening' : 'Good night';
+    const head = el('div', 'bhead'); head.append(el('b', '', greet + (d.name ? ', ' + d.name : '')), el('span', 'bclock', new Date().toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true }))); b.append(head);
+    if (d.countdowns.length) {
+      b.append(el('h6', '', 'Coming up')); const rows = [];
+      for (const c of d.countdowns) {
+        const row = el('div', 'cd ' + c.kind); const ring = el('div', 'cdring'); const lab = el('div', 'cdl', c.label); lab.append(el('small', '', c.kind === 'exam' ? 'Exam' : c.kind === 'deadline' ? 'Deadline' : 'Reminder')); const t = el('div', 'cdt'); row.append(ring, lab, t); b.append(row); rows.push({ c, ring, t, row });
+      }
+      const tick = () => { for (const x of rows) { const left = x.c.at - Date.now(); x.t.textContent = fmtCd(left); x.ring.style.setProperty('--p', String(left > 3600000 ? 1 : Math.max(0.02, left / 3600000))); x.row.classList.toggle('soon', left < 3600000); } };
+      tick(); briefT = setInterval(tick, 1000);
+    }
+    if (d.todos.length) {
+      b.append(el('h6', '', 'To do'));
+      for (const t of d.todos) { const it = el('div', 'item'); const c = el('button', 'chk'); c.onclick = async () => { c.classList.add('on'); it.classList.add('done'); setData(await T.dock.todoToggle(t.id)); sfx('done', 0.45); }; it.append(c, el('div', 'txt', t.text)); b.append(it); }
+    }
+    const bits = []; if (d.due) bits.push(`${d.due} flashcard${d.due > 1 ? 's' : ''} due`); if (d.streak) bits.push(`${d.streak} day streak`); if (d.routinesTotal) bits.push(`routines ${d.routinesDone}/${d.routinesTotal}`);
+    b.append(el('div', 'bstats', bits.length ? bits.join('  -  ') : 'Nothing is waiting. Have a good one.'));
+    const row = el('div', 'alertbtns');
+    if (d.due) { const q = el('button', 'chip on', 'Quiz me'); q.onclick = () => { closePop(); T.dock.open(true); setTab('study'); setTimeout(() => $('btnQuiz').click(), 300); }; row.append(q); }
+    const f = el('button', 'chip', 'Focus'); f.onclick = () => { closePop(); T.dock.open(true); setTab('study'); setTimeout(() => $('btnFocus').click(), 300); }; row.append(f);
+    const p = el('button', 'chip', 'Open panel'); p.onclick = () => { closePop(); T.dock.open(true); }; row.append(p);
+    const x = el('button', 'chip', 'Dismiss'); x.onclick = closePop; row.append(x); b.append(row);
+    T.dock.pop(true); mood('greeting', 3800); sfx('wake', 0.4);
+    setTimeout(() => { if (briefOn && isPop) closePop(); }, 45000);
+  }
+  T.on('dock:brief', showBrief);
+
   // ---------------------------------------------------------------- chat (the command bar and the Chat tab share one conversation)
   let chat = []; try { chat = JSON.parse(localStorage.getItem('titoChat') || '[]').slice(-40); } catch { chat = []; }
+  const cmdHome = { parent: $('cmd').parentNode, next: $('cmd').nextSibling };
+  function placeComposer() {                                             // in the Chat tab the input sits at the bottom, like a chat app
+    const cmd = $('cmd');
+    if (tab === 'chat') { $('chatDock').append(cmd); $('quick').hidden = true; } else { cmdHome.parent.insertBefore(cmd, cmdHome.next); $('quick').hidden = false; }
+  }
+  const mdHooks = { copy: (t) => T.copyText(t), open: (u) => T.openExternal(u) };
+  function msgNode(m) {
+    const box = el('div', 'msg ' + (m.role === 'user' ? 'user' : 'tito') + (m.fail ? ' fail' : ''));
+    if (m.role === 'user') { box.textContent = m.text; return box; }
+    box.append(window.TitoMd.render(m.text, mdHooks));
+    const tools = el('div', 'mtools'); const cp = el('button', '', 'Copy'); cp.onclick = async () => { await T.copyText(m.text); cp.textContent = 'Copied'; setTimeout(() => { cp.textContent = 'Copy'; }, 1500); };
+    const rd = el('button', '', 'Read aloud'); rd.onclick = async () => { rd.textContent = 'Reading...'; const r = await window.TitoVoice.say(m.text.replace(/```[\s\S]*?```/g, ' code block ').replace(/[*_`#>]/g, '')); rd.textContent = r && r.ok === false ? 'No voice' : 'Read aloud'; };
+    tools.append(cp, rd); box.append(tools); return box;
+  }
   function renderChat() {
     const log = $('chatLog'); log.textContent = '';
-    if (!chat.length) log.append(el('div', 'msg tito', 'Hi, I am Tito. Ask me anything, or tell me what to do: "remind me at 5 pm to call mom", "add flashcard ...", "play lofi".'));
-    for (const m of chat) log.append(el('div', 'msg ' + (m.role === 'user' ? 'user' : 'tito') + (m.fail ? ' fail' : ''), m.text));
+    if (!chat.length) log.append(msgNode({ role: 'tito', text: 'Hi, I am **Tito**. Ask me anything, ask for code, or tell me what to do: _"remind me at 5 pm to call mom"_, "add flashcard ...", "play lofi".' }));
+    for (const m of chat) log.append(msgNode(m));
     const hints = $('chatHints'); hints.textContent = '';
-    if (tab === 'chat') for (const h of ['What is on my list?', 'Start focus', 'Quiz me', 'Add routine yoga at 6 am']) { const c = el('button', 'chip', h); c.onclick = () => run(h); hints.append(c); }
-    log.parentElement.scrollTop = log.parentElement.scrollHeight;
+    if (tab === 'chat') for (const h of ['What is on my list?', 'Start focus', 'Quiz me', 'Explain recursion with a Python example']) { const c = el('button', 'chip', h); c.onclick = () => run(h); hints.append(c); }
+    $('chatScroll').scrollTop = $('chatScroll').scrollHeight;
   }
-  function logChat(role, text, fail) { if (!text) return; chat.push({ role, text: String(text).slice(0, 500), fail: !!fail }); chat = chat.slice(-40); try { localStorage.setItem('titoChat', JSON.stringify(chat)); } catch { /* private mode */ } if (tab === 'chat') renderChat(); }
+  function logChat(role, text, fail) { if (!text) return; chat.push({ role, text: String(text).slice(0, 8000), fail: !!fail }); chat = chat.slice(-30); try { localStorage.setItem('titoChat', JSON.stringify(chat)); } catch { /* private mode or full */ } if (tab === 'chat') renderChat(); }
   T.on('dock:cards', () => { if (tab === 'study') refreshStudy(); });
   T.on('dock:stopFocus', () => { if (focusing) $('fStop').click(); });
 
-  async function run(text) {
-    reply('...'); mood('thinking', 0); logChat('user', text);
-    const r = await T.dock.command({ text, history: chat.slice(-8).map((m) => ({ role: m.role, text: m.text })) });
-    logChat('tito', r.search ? (r.say || 'Here is what I found.') : r.say || (r.ok ? 'Done.' : 'Something went wrong.'), !r.ok);
-    settle();
-    if (r.anim) mood(r.anim, 3500);
-    reply(r.search ? '' : r.say || (r.ok ? 'Done.' : 'Something went wrong.'));
-    if (!r.ok && r.intent && r.intent.type === 'unknown') {
-      reply(r.say, [['Search it', () => run('search ' + text)], ['Remind me', () => { $('cmdIn').value = 'remind me at '; $('cmdIn').focus(); }], ['Add to list', () => run('add todo ' + text)]]);
+  const short = (t, n = 230) => { t = String(t).replace(/```[\s\S]*?```/g, ' (code) ').replace(/[*_`#>]|!?\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1) + '...' : t; };
+  /** Wikipedia + web results as Markdown, so a lookup lives in the chat like any other answer. */
+  async function searchMd(res, query) {
+    let out = '';
+    if (res.wiki) {
+      if (res.wiki.image) out += `![${res.wiki.title}](${res.wiki.image})\n\n`;
+      out += `**${res.wiki.title}**\n\n${res.wiki.extract.split('. ').slice(0, 3).join('. ')}\n\n`; if (res.wiki.page) out += `[Read more on Wikipedia](${res.wiki.page})\n\n`;
+    } else out += `**${query}**\n\n`;
+    for (const r of res.results.slice(0, 3)) out += `- [${String(r.title).replace(/[\[\]]/g, '')}](${r.url})${r.snippet ? ' ' + String(r.snippet).slice(0, 100) : ''}\n`;
+    if (!res.wiki && !res.results.length) out += res.error || 'I could not find anything. Try different words.';
+    try { const imgs = await Promise.race([T.dock.images(query), new Promise((r) => setTimeout(() => r([]), 2500))]); if (Array.isArray(imgs) && imgs.length) out += '\n' + imgs.slice(0, 3).map((i) => `![${String(i.title).replace(/[\[\]]/g, '')}](${i.thumb})`).join(' ') + '\n\n_Pictures: Wikimedia Commons_'; } catch { /* pictures are optional */ }
+    return out;
+  }
+  async function run(text, opts = {}) {
+    const from = opts.from || (isPop && !isOpen ? 'pop' : 'panel');
+    if (from === 'pop') popResult('Thinking...'); else reply('...');
+    mood('thinking', 0); logChat('user', text);
+    const r = await T.dock.command({ text, history: chat.slice(-9, -1).map((m) => ({ role: m.role, text: m.text })) });
+    const full = r.search ? await searchMd(r.search, r.intent.query) : r.say || (r.ok ? 'Done.' : 'Something went wrong.');
+    logChat('tito', full, !r.ok); settle(); if (r.anim) mood(r.anim, 3500);
+    const unknown = !r.ok && r.intent && r.intent.type === 'unknown';
+    const askBtns = r.ask && r.ask.options ? r.ask.options.map((o) => [o.label, () => { if (o.cmd) run(o.cmd, { from }); else if (o.url) T.openExternal(o.url); else if (o.settings) T.openWindow('settings'); }]) : [];
+    const unknownBtns = unknown ? [['Search it', () => run('search ' + text, { from })], ['Remind me', () => { (from === 'pop' ? $('popIn') : $('cmdIn')).value = 'remind me at '; (from === 'pop' ? $('popIn') : $('cmdIn')).focus(); }], ['Add to list', () => run('add todo ' + text, { from })]] : [];
+    const needsPanel = !!r.play || (r.intent && ['teach', 'tab', 'quiz', 'focus', 'settings'].includes(r.intent.type));
+    if (from === 'pop') {
+      const btns = [...askBtns, ...unknownBtns];
+      if (r.undo) btns.unshift(['Undo', async () => { setData(await T.dock.undo(r.undo)); popResult('Undone.'); setTimeout(() => { if (isPop) popResult(''); }, 1600); }]);
+      if (r.search || r.md || (r.intent && r.intent.type === 'chat')) btns.push(['Open chat', () => { T.dock.open(true); setTab('chat'); }]);
+      popResult(short(full), btns);
+      if (needsPanel) { T.dock.open(true); }
+    } else {
+      reply(short(full, 400), askBtns.length ? askBtns : unknownBtns);
+      if (r.say && !isOpen && !alertNow) say(short(r.say, 160));
+      if (r.search || r.md) setTab('chat');                                   // answers live in the chat, not floating over another tab
     }
-    if (r.say && !isOpen && !alertNow) say(r.say);
-    if (r.say && S.voiceMode === 'all' && voiceOn() && !r.search) window.TitoVoice.say(r.say);
-    if (r.play) { setTab('media'); startYoutube(r.play.video); }
+    if (r.say && S.voiceMode === 'all' && voiceOn() && !r.search) window.TitoVoice.say(short(r.say, 400));
+    if (r.play && r.play.source === 'spotify') { setTab('media'); embedSpotify(r.play.kind, r.play.id); }
+    else if (r.play) { setTab('media'); startYoutube(r.play.video, r.play.more || []); }
     if (r.media) mediaAction(r.media, r.seconds);
-    if (r.search) showSearch(r.search, r.intent.query);
-    if (r.intent && r.intent.type === 'todo') setTab('today');
+    if (r.intent && r.intent.type === 'todo' && from === 'panel') setTab('today');
     return r;
   }
   window.__dockRun = run;
 
-  function showAnswer(title, text) {
-    const c = $('card'); c.textContent = ''; c.hidden = false; const x = el('button', 'link close', 'Close'); x.onclick = () => { c.hidden = true; };
-    c.append(x, el('h5', '', title)); for (const line of String(text).split(/\n+/)) if (line.trim()) c.append(el('div', '', line.trim()));
-  }
-
-  // ---------------------------------------------------------------- web lookup card
-  async function showSearch(res, query) {
-    const c = $('card'); c.textContent = ''; c.hidden = false; const x = el('button', 'link close', 'Close'); x.onclick = () => { c.hidden = true; }; c.append(x);
-    if (res.wiki) {
-      if (res.wiki.image) { const im = el('img', 'hero'); im.src = res.wiki.image; im.alt = res.wiki.title; c.append(im); }
-      c.append(el('h5', '', res.wiki.title), el('div', '', res.wiki.extract.split('. ').slice(0, 3).join('. ')));
-      if (res.wiki.page) { const a = el('a', '', 'Read more on Wikipedia'); a.onclick = () => T.openExternal(res.wiki.page); c.append(a); }
-    } else c.append(el('h5', '', query));
-    for (const r of res.results.slice(0, 3)) { const a = el('a', '', r.title); a.onclick = () => T.openExternal(r.url); c.append(a); if (r.snippet) c.append(el('small', '', r.snippet.slice(0, 110))); }
-    if (!res.wiki && !res.results.length) c.append(el('div', '', res.error || 'I could not find anything. Try different words.'));
-    const row = el('div', 'alertbtns'); const fc = el('button', 'chip', 'Save as flashcard');
-    fc.onclick = async () => { const back = res.wiki ? res.wiki.extract.split('. ')[0] : (res.results[0] || {}).snippet || ''; const x = await T.cards.add(res.wiki ? res.wiki.title : query, back); fc.textContent = x.ok ? 'Saved' : 'Could not save'; fc.disabled = true; };
-    row.append(fc); c.append(row);
-    const imgs = await T.dock.images(query).catch(() => []);                          // freely licensed Wikimedia pictures
-    if (Array.isArray(imgs) && imgs.length && !c.hidden) {
-      const strip = el('div', 'imgs'); for (const i of imgs) { const im = el('img'); im.src = i.thumb; im.alt = i.title; im.title = i.credit; im.onclick = () => T.openExternal(i.page); strip.append(im); }
-      c.insertBefore(strip, row); c.append(el('small', '', 'Pictures: Wikimedia Commons'));
-    }
-  }
+  function showAnswer(title, text) { logChat('tito', `**${title}**\n\n${text}`); setTab('chat'); }
 
   // ---------------------------------------------------------------- media
+  let ytQueue = [], ytHist = [], currentVideo = null;
   let ytFrame = null, ytState = -1, ytTime = 0, ytVol = 100, ytReady = false, ytWatch = 0, ytId = '';
   const ytSend = (fn, args = []) => { if (ytFrame && ytFrame.contentWindow) ytFrame.contentWindow.postMessage({ tito: 'cmd', fn, args }, '*'); };
   function setPlaying(v) { playing = v; $('eq').classList.toggle('on', v); if (!focusing && !alertNow) { clearTimeout(temp); settle(); } }
@@ -253,7 +322,15 @@
     const m = el('div', 'playerr', why === 'offline' ? 'Could not reach YouTube. Check your internet connection.' : 'This video cannot be played inside Tito.');
     const b = el('button', 'chip on', 'Open on YouTube'); b.onclick = () => T.openExternal('https://www.youtube.com/watch?v=' + ytId); m.append(document.createElement('br'), b); box.append(m);
   }
-  async function startYoutube(v) {
+  function renderMore() {
+    const box = $('ytMore'); box.textContent = '';
+    for (const v of ytQueue.slice(0, 4)) {
+      const it = el('div', 'item'); const im = el('img'); im.src = v.thumb || ''; im.alt = ''; const t = el('div', 'txt', v.title); t.append(el('small', '', v.channel || ''));
+      it.append(im, t); it.onclick = () => { if (currentVideo) ytHist.push(currentVideo); ytQueue = ytQueue.filter((x) => x.id !== v.id); startYoutube(v, ytQueue); }; box.append(it);
+    }
+  }
+  async function startYoutube(v, more) {
+    if (Array.isArray(more)) ytQueue = more; currentVideo = v; renderMore();
     $('player').hidden = false; $('nowTitle').textContent = v.title + (v.channel ? '  -  ' + v.channel : ''); ytId = v.id;
     const box = $('playerFrame'); box.textContent = ''; ytState = -1; ytReady = false; clearTimeout(ytWatch);
     const r = await T.dock.playerUrl(v.id); if (!r.ok) return playerFailed('bad');
@@ -270,6 +347,8 @@
   });
   /** Controls the embedded player when there is one, otherwise the Windows media keys (Spotify, a browser tab, any player). */
   async function mediaAction(a, seconds) {
+    if (a === 'next' && ytFrame && ytQueue.length) { if (currentVideo) ytHist.push(currentVideo); startYoutube(ytQueue.shift(), ytQueue); return; }
+    if (a === 'prev' && ytFrame && ytHist.length) { const v = ytHist.pop(); if (currentVideo) ytQueue.unshift(currentVideo); startYoutube(v, ytQueue); return; }
     const yt = ytFrame && document.contains(ytFrame);
     if (yt && ytReady && ['play', 'pause', 'volup', 'voldown', 'mute', 'seek'].includes(a)) {
       if (a === 'play') ytSend(ytState === 1 ? 'pauseVideo' : 'playVideo'); else if (a === 'pause') ytSend('pauseVideo');
@@ -280,17 +359,20 @@
     const r = await T.dock.mediaKey(a === 'seek' ? 'next' : a); if (r && r.ok) { if (a === 'play') setPlaying(!playing); if (a === 'pause') setPlaying(false); }
   }
   document.querySelectorAll('.ctrl [data-key]').forEach((b) => (b.onclick = () => mediaAction(b.dataset.key)));
+  function embedSpotify(kind, id) {
+    const f = el('iframe'); f.src = `https://open.spotify.com/embed/${kind}/${id}`; f.allow = 'autoplay; encrypted-media; clipboard-write'; f.style.height = kind === 'track' || kind === 'episode' ? '152px' : '352px';
+    $('spFrame').textContent = ''; $('spFrame').append(f); mood('headphones', 2500);
+  }
+  // anything pasted into either box is understood: a YouTube link plays here, a Spotify link embeds, a song name is searched
   $('ytForm').onsubmit = async (e) => {
-    e.preventDefault(); const v = $('ytIn').value.trim(); if (!v) return;
+    e.preventDefault(); const v = $('ytIn').value.trim(); if (!v) return; $('ytIn').value = '';
     const r = await T.dock.youtubeInfo(v);
-    if (r.ok) { startYoutube(r.video); $('ytIn').value = ''; } else run('play ' + v + ' on youtube');
+    if (r.ok) startYoutube(r.video, []); else run(/^https?:\/\//i.test(v) ? v : 'play ' + v + ' on youtube');
   };
   $('spForm').onsubmit = (e) => {
-    e.preventDefault(); const v = $('spIn').value.trim(); if (!v) return;
+    e.preventDefault(); const v = $('spIn').value.trim(); if (!v) return; $('spIn').value = '';
     const m = v.match(/open\.spotify\.com\/(?:intl-[a-z]+\/)?(track|album|playlist|artist|episode|show)\/([A-Za-z0-9]+)/);
-    if (m) { const f = el('iframe'); f.src = `https://open.spotify.com/embed/${m[1]}/${m[2]}`; f.allow = 'autoplay; encrypted-media; clipboard-write'; f.style.height = m[1] === 'track' || m[1] === 'episode' ? '152px' : '352px'; $('spFrame').textContent = ''; $('spFrame').append(f); mood('headphones', 2500); }
-    else { T.dock.spotify(v); reply(`Opening Spotify for "${v}".`); mood('headphones', 2500); }
-    $('spIn').value = '';
+    if (m) embedSpotify(m[1], m[2]); else { T.dock.spotify(v); reply(`Opening Spotify for "${v}".`); mood('headphones', 2500); }
   };
 
   // ---------------------------------------------------------------- study: flashcards, quiz, focus timer
@@ -346,25 +428,101 @@
     await T.copyImage(c.toDataURL('image/png')); const saved = await T.saveImage(c.toDataURL('image/png')); reply('Weekly card copied' + (saved && saved.ok ? ' and saved to Pictures/Tito.' : '.')); mood('celebrate', 3000);
   };
 
-  let fTimer = 0, fEnd = 0;
-  $('btnFocus').onclick = () => {
-    focusing = true; fEnd = Date.now() + 25 * 60000; $('studyHome').hidden = true; $('focus').hidden = false; clearTimeout(temp); settle(); tickFocus();
-    fTimer = setInterval(tickFocus, 1000);
+  // ---------------------------------------------------------------- Teach Tito: explain a topic to Tito (Feynman technique) and get graded
+  let tp = { topic: '', round: 0, question: '', scores: [], cards: [], busy: false };
+  const tpShow = (id) => { for (const x of ['tpSetup', 'tpTalk', 'tpResult', 'tpDone']) $(x).hidden = x !== id; };
+  async function openTeach(topic, autoStart) {
+    setTab('study'); $('studyHome').hidden = true; $('quiz').hidden = true; $('focus').hidden = true; $('teach').hidden = false;
+    tp = { topic: '', round: 0, question: '', scores: [], cards: [], busy: false }; $('tpTopic').value = topic || ''; $('tpRound').textContent = 'Teach Tito'; tpShow('tpSetup');
+    const rec = $('tpRecent'); rec.textContent = '';
+    try { const h = await T.history.list(); const seen = new Set(); for (const x of h) { const t = String(x.title || '').trim(); if (!t || seen.has(t.toLowerCase()) || seen.size >= 4) continue; seen.add(t.toLowerCase()); const c = el('button', 'chip', t); c.onclick = () => { $('tpTopic').value = t; startTeach(); }; rec.append(c); } } catch { /* no notebook yet */ }
+    if (topic && autoStart) startTeach(); else $('tpTopic').focus();
+  }
+  function startTeach() {
+    const topic = $('tpTopic').value.trim(); if (topic.length < 2) { reply('What should you teach me?'); return; }
+    tp = { topic, round: 1, question: '', scores: [], cards: [], busy: false };
+    askRound(`I have never heard of ${topic}. Can you teach me? Explain it like I am 10 years old.`);
+  }
+  function askRound(q) { tp.question = q; $('tpRound').textContent = `Teach Tito: round ${tp.round} of 3`; $('tpQ').textContent = q; $('tpText').value = ''; tpShow('tpTalk'); mood('listening', 0); $('tpText').focus(); }
+  async function sendTeach() {
+    if (tp.busy) return; const text = $('tpText').value.trim(); if (text.length < 15) { reply('Tell me a little more, in your own words.'); return; }
+    tp.busy = true; $('tpSend').disabled = true; reply('Thinking about what you said...'); mood('thinking', 0);
+    const r = await T.dock.teachEvaluate({ topic: tp.topic, text, round: tp.round, question: tp.question });
+    tp.busy = false; $('tpSend').disabled = false; settle(); reply('');
+    if (!r.ok) { reply(r.message || 'Something went wrong. Try again.'); mood('confused', 2500); return; }
+    tp.scores.push(r.score); for (const c of r.cards) if (!tp.cards.some((x) => x.front.toLowerCase() === c.front.toLowerCase())) tp.cards.push(c);
+    renderTeachResult(r);
+  }
+  function tpList(title, items, cls) { if (!items.length) return null; const b = el('div', 'tpl ' + cls); b.append(el('b', '', title)); for (const i of items) b.append(el('div', '', i)); return b; }
+  function renderTeachResult(r) {
+    const box = $('tpResult'); box.textContent = '';
+    const head = el('div', 'tpscore ' + (r.score >= 80 ? 'great' : r.score >= 50 ? 'okay' : 'low')); head.append(el('b', '', String(r.score)), el('span', '', 'out of 100')); box.append(head);
+    if (r.praise) box.append(el('div', 'tppraise', r.praise));
+    for (const [t, a, c] of [['You got right', r.good, 'good'], ['Missing', r.gaps, 'gap'], ['Not quite', r.wrong, 'wrong']]) { const l = tpList(t, a, c); if (l) box.append(l); }
+    const last = tp.round >= 3 || !r.question; const row = el('div', 'row2');
+    if (!last) { box.append(el('div', 'tpq', 'I wonder: ' + r.question)); const b = el('button', 'btn primary', 'Answer my question'); b.onclick = () => { tp.round++; askRound(r.question); }; row.append(b); }
+    const f = el('button', 'btn' + (last ? ' primary' : ''), last ? 'Finish' : 'Finish now'); f.onclick = finishTeach; row.append(f); box.append(row);
+    tpShow('tpResult'); const [anim, snd] = r.score >= 80 ? ['streak_fire', 'celebrate'] : r.score >= 50 ? ['cheer', 'cheer'] : ['oops', 'oops']; sfx(snd, 0.5); mood(anim, 3500);
+  }
+  async function finishTeach() {
+    const r = await T.dock.teachFinish({ topic: tp.topic, scores: tp.scores }); const box = $('tpDone'); box.textContent = '';
+    const head = el('div', 'tpscore ' + (r.avg >= 80 ? 'great' : r.avg >= 50 ? 'okay' : 'low')); head.append(el('b', '', String(r.avg)), el('span', '', 'teaching score')); box.append(head);
+    box.append(el('div', 'tppraise', `You taught me ${tp.topic}. +${r.gain} xp.`));
+    const row = el('div', 'row2');
+    if (tp.cards.length) { const sv = el('button', 'btn primary', `Save ${tp.cards.length} flashcard${tp.cards.length > 1 ? 's' : ''}`); sv.onclick = async () => { for (const c of tp.cards) await T.cards.add(c.front, c.back); sv.disabled = true; sv.textContent = 'Saved'; refreshStudy(); }; row.append(sv); }
+    const again = el('button', 'btn', 'Teach something else'); again.onclick = () => openTeach('', false); row.append(again); box.append(row);
+    tpShow('tpDone'); refreshStudy(); sfx('celebrate', 0.5);
+  }
+  function closeTeach() { $('teach').hidden = true; $('studyHome').hidden = false; settle(); refreshStudy(); }
+  $('btnTeach').onclick = () => openTeach('', false); $('tpForm').onsubmit = (e) => { e.preventDefault(); startTeach(); }; $('tpSend').onclick = sendTeach; $('tpExit').onclick = closeTeach;
+  $('tpMic').onclick = () => { voiceTarget = 'teach'; startVoice(); };
+  T.on('dock:teach', ({ topic }) => openTeach(topic, !!topic));
+
+  let fTimer = 0, fEnd = 0, guardOn = false;
+  $('btnFocus').onclick = async () => {
+    focusing = true; fEnd = Date.now() + 25 * 60000; $('studyHome').hidden = true; $('focus').hidden = false; $('fReport').hidden = true; $('fReport').textContent = ''; $('fTime').hidden = false; $('fStop').parentNode.hidden = false;
+    clearTimeout(temp); settle(); tickFocus(); fTimer = setInterval(tickFocus, 1000);
+    const g = await T.dock.focusStart(); guardOn = !!(g && g.guard); $('fLive').textContent = guardOn ? 'Focus Guard is watching quietly (only window titles, on this PC).' : ''; $('fMeterBar').style.width = '100%';
   };
   function tickFocus() {
     const left = Math.max(0, fEnd - Date.now()); $('fTime').textContent = `${pad(Math.floor(left / 60000))}:${pad(Math.floor(left / 1000) % 60)}`;
-    if (!left) { stopFocus(); sfx('focus_done', 0.6); mood('celebrate', 5000); say('Focus round done. Take a 5 minute break.', 9000); reply('Focus round done. Take a 5 minute break.'); }
+    if (!left) { sfx('focus_done', 0.6); mood('celebrate', 5000); say('Focus round done. Take a 5 minute break.', 9000); stopFocus(true); }
   }
-  function stopFocus() { clearInterval(fTimer); focusing = false; $('focus').hidden = true; $('studyHome').hidden = false; settle(); refreshStudy(); }
-  $('fStop').onclick = stopFocus;
+  T.on('dock:focusLive', (l) => {
+    if (!focusing) return; $('fMeterBar').style.width = Math.max(4, l.score) + '%';
+    $('fLive').className = 'sub' + (l.state === 'distract' ? ' bad' : ''); $('fLive').textContent = l.state === 'break' ? 'On a break. Not counting.' : l.state === 'distract' ? `Drifting: ${l.label}` : `On task  -  focus ${l.score}%`;
+  });
+  T.on('dock:nudge', (n) => {
+    if (!focusing) return; sfx('oops', 0.45); mood('worried', 5000);
+    const back = () => { clearAlert(); hideBubble(); reply(''); if (isPop) popResult(''); settle(); };
+    const btns = [['Back to work', back], ['5 min break', async () => { await T.dock.focusPause(5); back(); }]];
+    const msg = `You have been on ${n.label} for ${n.secs} seconds. Back to studying?`;
+    if (isOpen) reply(msg, btns); else if (isPop) popResult(msg, btns); else say(msg, 0, btns);
+  });
+  function reportNode(rep) {
+    const box = el('div'); const head = el('div', 'tpscore ' + (rep.score >= 80 ? 'great' : rep.score >= 50 ? 'okay' : 'low')); head.append(el('b', '', rep.score + '%'), el('span', '', 'focus score')); box.append(head);
+    box.append(el('div', 'tppraise', rep.score >= 80 ? 'Great focus. Proud of you.' : rep.score >= 50 ? 'Decent. A little less wandering next round.' : 'That was a drifty one. Try again, I will help.'));
+    const l = el('div', 'tpl good'); l.append(el('b', '', 'This round')); l.append(el('div', '', `Studied ${Math.round(rep.onSec / 60)} min, drifted ${Math.round(rep.badSec / 60)} min, ${rep.nudges} nudge${rep.nudges === 1 ? '' : 's'}.  +${rep.xp || 0} xp`)); box.append(l);
+    if (rep.top && rep.top.length) { const d = el('div', 'tpl gap'); d.append(el('b', '', 'Top distractions')); for (const x of rep.top) d.append(el('div', '', `${x.label}: ${Math.max(1, Math.round(x.sec / 60))} min`)); box.append(d); }
+    return box;
+  }
+  async function stopFocus(finished) {
+    clearInterval(fTimer); focusing = false; const res = await T.dock.focusStop(); const rep = res && res.report;
+    if (!rep || !rep.minutes) { $('focus').hidden = true; $('studyHome').hidden = false; settle(); refreshStudy(); return; }
+    $('fTime').hidden = true; $('fStop').parentNode.hidden = true; $('fLive').textContent = ''; const box = $('fReport'); box.textContent = ''; box.hidden = false; box.append(reportNode(rep));
+    const done = el('button', 'btn primary', 'Done'); done.style.width = '100%'; done.onclick = () => { $('focus').hidden = true; $('studyHome').hidden = false; settle(); refreshStudy(); }; box.append(el('div', 'row2').appendChild(done).parentNode);
+    logChat('tito', `**Focus round**: score **${rep.score}%**, studied ${Math.round(rep.onSec / 60)} min, drifted ${Math.round(rep.badSec / 60)} min` + (rep.top.length ? ` (${rep.top.map((x) => x.label).join(', ')})` : '') + '.');
+    sfx(rep.score >= 80 ? 'celebrate' : 'done', 0.5); mood(rep.score >= 80 ? 'streak_fire' : rep.score >= 50 ? 'cheer' : 'oops', 3500); refreshStudy();
+  }
+  $('fStop').onclick = () => stopFocus(false);
 
   // ---------------------------------------------------------------- voice
-  let rec = null, chunks = [], stream = null, silence = null;
+  let rec = null, chunks = [], stream = null, silence = null, voiceTarget = '';
   async function startVoice() {
     if (recording) return stopVoice();
     try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
     catch { reply('I cannot reach a microphone. Check that one is connected and allowed in Windows privacy settings.'); return; }
-    recording = true; chunks = []; sfx('mic_on', 0.4); $('btnMic').classList.add('rec'); mood('mic_listening', 0); reply('Listening... speak now.'); if (!isOpen) say('Listening...', 12000);
+    recording = true; chunks = []; sfx('mic_on', 0.4); $('btnMic').classList.add('rec'); mood('mic_listening', 0); $('popMic').classList.add('rec'); if (voiceTarget === 'pop') popResult('Listening... speak now.'); else { reply('Listening... speak now.'); if (!isOpen && !isPop) say('Listening...', 12000); }
     const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : '';
     rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined); rec.ondataavailable = (e) => e.data.size && chunks.push(e.data); rec.onstop = finishVoice; rec.start(250);
     // stop by itself after the speaker goes quiet (or after 15 seconds)
@@ -376,13 +534,16 @@
       if ((heard && quietSince && Date.now() - quietSince > 1400) || Date.now() - started > 15000) { ac.close(); stopVoice(); }
     }, 120);
   }
-  function stopVoice() { if (recording) sfx('mic_off', 0.4); clearInterval(silence); if (rec && rec.state !== 'inactive') rec.stop(); recording = false; $('btnMic').classList.remove('rec'); }
+  function stopVoice() { if (recording) sfx('mic_off', 0.4); clearInterval(silence); if (rec && rec.state !== 'inactive') rec.stop(); recording = false; $('btnMic').classList.remove('rec'); $('popMic').classList.remove('rec'); }
   async function finishVoice() {
     if (stream) stream.getTracks().forEach((t) => t.stop());
-    const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' }); reply('Understanding...'); mood('thinking', 0);
+    const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' }); if (voiceTarget === 'pop') popResult('Understanding...'); else reply('Understanding...'); mood('thinking', 0);
     const r = await T.dock.transcribe({ audio: await blob.arrayBuffer(), mime: blob.type });
-    settle(); if (!r.ok) { reply(r.message || 'I could not understand that.'); mood('confused', 2500); return; }
+    settle(); const target = voiceTarget; voiceTarget = '';
+    if (!r.ok) { reply(r.message || 'I could not understand that.'); mood('confused', 2500); return; }
     if (!r.text) { reply('I did not hear anything.'); return; }
+    if (target === 'teach') { reply(''); $('tpText').value = ($('tpText').value + ' ' + r.text).trim(); return; }
+    if (target === 'pop') { run(r.text, { from: 'pop' }); return; }
     $('cmdIn').value = r.text; setTimeout(() => { $('cmdIn').value = ''; }, 400); run(r.text);
   }
   $('btnMic').onclick = startVoice;
@@ -402,5 +563,5 @@
   setInterval(() => { if (!alertNow && (pet.name === 'idle' || pet.name === 'sleeping')) settle(); }, 20000);          // falls asleep at night when you are away
 
   setData(await T.dock.data()); settle(); life(); renderChat();
-  window.__dock = { playVideo: startYoutube, yt: () => ({ ready: ytReady, state: ytState, time: ytTime, hasFrame: !!ytFrame }), ringFx, say, mood, run, setTab, state: () => ({ pet: pet.name, open: isOpen, tab, playing, focusing }) };
+  window.__dock = { brief: showBrief, pop: openPop, closePop, focusUi: () => ({ focusing, guardOn, live: $('fLive').textContent, report: !$('fReport').hidden }), teach: openTeach, playVideo: startYoutube, yt: () => ({ ready: ytReady, state: ytState, time: ytTime, hasFrame: !!ytFrame, id: currentVideo && currentVideo.id, queue: ytQueue.length }), ringFx, say, mood, run, setTab, state: () => ({ pet: pet.name, open: isOpen, pop: isPop, tab, playing, focusing }) };
 })();

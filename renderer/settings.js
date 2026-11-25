@@ -275,10 +275,12 @@
   const pretty = (a) => a.replace('CommandOrControl', 'Ctrl').replace(/\+/g, ' + ');
   const SC_LABEL = { voice: 'Voice', todo: 'Quick to-do', dock: 'Dock', quiz: 'Quiz' };
   function renderDockCard() {
+    $('nameIn').value = S.userName || ''; $('swGuard').checked = S.focusGuard !== false; $('guardWords').value = S.guardWords || '';
     $('swDock').checked = S.dockOn !== false; $('swNotify').checked = S.notify !== false; $('swSound').checked = S.sounds !== false; $('swClip').checked = !!S.clipWatch;
     $('searxIn').value = S.searxUrl || ''; $('ytKey').value = ''; $('ytKey').placeholder = S.hasKey && S.hasKey.youtube ? 'Key saved. Paste a new one to replace it' : 'Paste a YouTube Data API key';
     for (const n of document.querySelectorAll('[data-sc]')) n.value = SC_LABEL[n.dataset.sc] + ':  ' + pretty((S.shortcuts && S.shortcuts[n.dataset.sc]) || SC_DEFAULT[n.dataset.sc]);
   }
+  $('nameIn').onchange = () => save({ userName: $('nameIn').value.trim().slice(0, 30) }); $('swGuard').onchange = (e) => save({ focusGuard: e.target.checked }); $('guardWords').onchange = () => save({ guardWords: $('guardWords').value.trim() });
   $('swDock').onchange = (e) => save({ dockOn: e.target.checked }); $('swSound').onchange = (e) => save({ sounds: e.target.checked }); $('swNotify').onchange = (e) => save({ notify: e.target.checked }); $('swClip').onchange = (e) => save({ clipWatch: e.target.checked });
   $('searxIn').onchange = () => { const v = $('searxIn').value.trim(); if (v && !/^https?:\/\//i.test(v)) return msg('scMsg', 'Start the address with https://', false); save({ searxUrl: v.replace(/\/+$/, '') }); };
   $('getYt').onclick = () => window.tito.openExternal('https://console.cloud.google.com/apis/library/youtube.googleapis.com');

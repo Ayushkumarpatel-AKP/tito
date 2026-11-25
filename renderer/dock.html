@@ -52,7 +52,7 @@
         <div class="lvl"><b id="stLevel"></b><div class="bar"><i id="stBar"></i></div></div>
         <div id="planBox" class="plan"></div>
         <div class="row2"><button class="btn primary" id="btnQuiz"><i class="ic ic-white" data-i="cards"></i>Quiz me</button><button class="btn lav" id="btnFocus"><i class="ic ic-lav" data-i="timer"></i>Focus 25 min</button></div>
-        <div class="row2"><button class="btn small" id="btnMistakes"><i class="ic ic-coral" data-i="arrow-clockwise"></i><span id="mistakeLabel">Mistakes</span></button><button class="btn small" id="btnWeek"><i class="ic ic-sky" data-i="image-square"></i>Weekly card</button></div>
+        <div class="row2"><button class="btn small" id="btnTeach"><i class="ic ic-mint" data-i="brain"></i>Teach Tito</button><button class="btn small" id="btnMistakes"><i class="ic ic-coral" data-i="arrow-clockwise"></i><span id="mistakeLabel">Mistakes</span></button><button class="btn small" id="btnWeek"><i class="ic ic-sky" data-i="image-square"></i>Weekly card</button></div>
         <h4>Exam countdown</h4>
         <form id="examForm" class="addrow"><input id="examName" type="text" placeholder="Exam name"><input id="examDate" type="date"><button class="btn small primary" type="submit"><i class="ic ic-white" data-i="plus"></i></button></form>
         <div id="examList" class="list"></div>
@@ -66,25 +66,42 @@
         <div class="row2" id="qShow"><button class="btn primary" id="qReveal">Show answer</button></div>
         <div class="row2" id="qGrade" hidden><button class="btn" id="qNo"><i class="ic ic-coral" data-i="arrow-clockwise"></i>Not yet</button><button class="btn mint" id="qYes"><i class="ic ic-mint" data-i="check-circle"></i>I knew it</button></div>
       </div>
+      <div id="teach" hidden>
+        <div class="qtop"><span id="tpRound">Teach Tito</span><button class="link" id="tpExit">Back</button></div>
+        <div id="tpSetup">
+          <p class="sub">Pick something you are studying and explain it to me like I am 10. I will tell you what you got right, what is missing and what is not quite right, then ask a curious question.</p>
+          <form id="tpForm" class="addrow"><input id="tpTopic" type="text" placeholder="Topic, for example photosynthesis"><button class="btn small primary" type="submit"><i class="ic ic-white" data-i="play"></i></button></form>
+          <div id="tpRecent" class="chips-row"></div>
+        </div>
+        <div id="tpTalk" hidden>
+          <div class="msg tito" id="tpQ"></div>
+          <textarea id="tpText" rows="5" placeholder="Explain it in your own words. Type, or press Speak."></textarea>
+          <div class="row2"><button class="btn" id="tpMic"><i class="ic ic-pink" data-i="microphone"></i>Speak</button><button class="btn primary" id="tpSend"><i class="ic ic-white" data-i="paper-plane-tilt"></i>Done</button></div>
+        </div>
+        <div id="tpResult" hidden></div>
+        <div id="tpDone" hidden></div>
+      </div>
       <div id="focus" hidden>
         <div class="timer" id="fTime">25:00</div><div id="fState" class="sub">Stay with it. Tito will be quiet.</div>
+        <div class="fmeter"><i id="fMeterBar"></i></div><div id="fLive" class="sub"></div>
         <div class="row2"><button class="btn" id="fStop">Stop</button></div>
+        <div id="fReport" hidden></div>
       </div>
     </div>
 
     <!-- CHAT -->
     <div class="pane" id="pane-chat">
-      <div id="chatLog" class="chatlog"></div>
-      <div class="chips-row" id="chatHints"></div>
+      <div id="chatScroll"><div id="chatLog" class="chatlog"></div><div class="chips-row" id="chatHints"></div></div>
+      <div id="chatDock"></div>
     </div>
 
     <!-- MEDIA -->
     <div class="pane" id="pane-media">
       <form id="ytForm" class="addrow"><input id="ytIn" type="text" placeholder="Paste a YouTube link, or a song to search"><button class="btn small primary" type="submit"><i class="ic ic-white" data-i="play"></i></button></form>
       <div id="player" hidden>
-        <div class="eq" id="eq"><i></i><i></i><i></i><i></i><i></i></div>
         <div id="playerFrame"></div>
-        <div id="nowTitle" class="now"></div>
+        <div class="nowrow"><div id="nowTitle" class="now"></div><div class="eq" id="eq"><i></i><i></i><i></i><i></i><i></i></div></div>
+        <div id="ytMore" class="list"></div>
       </div>
       <div class="ctrl">
         <button class="btn small" data-key="prev" title="Previous"><i class="ic ic-sky" data-i="skip-back"></i></button>
@@ -107,6 +124,13 @@
     <div id="card" hidden></div>
   </section>
 
+  <section id="pop" class="clay" hidden>
+    <div id="popRes" hidden></div>
+    <form id="popForm" autocomplete="off"><input id="popIn" type="text" placeholder="Tell Tito something..." spellcheck="false"><button type="button" class="mic" id="popMic" title="Speak"><i class="ic ic-white" data-i="microphone"></i></button></form>
+    <div id="popChips"><button class="chip" data-q="add todo ">To-do</button><button class="chip" data-q="remind me ">Remind</button><button class="chip" id="popCircle">Circle</button><button class="chip on" id="popPanel">Open panel</button></div>
+  </section>
+  <section id="brief" class="clay" hidden></section>
+
   <div id="stage">
     <div id="bubble" class="clay" hidden></div>
     <div id="pet" class="pet"><div class="shadow"></div></div>
@@ -116,6 +140,7 @@
 <script src="../assets/tito/manifest.js"></script>
 <script src="sprite.js"></script>
 <script src="sfx.js"></script>
+<script src="md.js"></script>
 <script src="dock.js"></script>
 </body>
 </html>

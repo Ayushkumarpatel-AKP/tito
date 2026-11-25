@@ -29,6 +29,11 @@ const DEFAULTS = {
   sounds: true,                  // cute sound effects for alerts, quiz and the dock
   autoOpenSites: true,           // a reminder about a website or video opens it at the time (apps only get a button)
   theme: 'mochi',
+  userName: '',                  // what Tito calls you
+  focusGuard: true,              // Focus Guard: nudge when a focus round drifts to distracting windows
+  guardWords: '',                // your own extra distracting words, comma separated
+  focusLog: [],                  // { ts, min, score } of finished focus rounds
+  lastFocus: null,
   ringtone: 'marimba',           // reminder ringtone (renderer/sfx.js)
   ringLoop: true,                // keep ringing until dismissed (max 20 s)
   voiceMode: 'alerts',           // alerts | all | off: when Tito speaks out loud
@@ -151,7 +156,8 @@ const removeCard = (id) => { cards = deck().filter((c) => c.id !== id); writeJso
 function weekStats() {
   const since = Date.now() - 7 * DAY, log = get().reviewLog || {};
   const reviewed = Object.entries(log).filter(([k]) => Date.now() - Date.parse(k) < 7 * DAY).reduce((n, [, v]) => n + v, 0);
-  return { asked: hist().filter((h) => h.ts >= since).length, reviewed, cards: deck().length, streak: get().streak || 0, xp: get().xp || 0 };
+  const focusMin = (get().focusLog || []).filter((f) => f.ts >= since).reduce((n, f) => n + (f.min || 0), 0);
+  return { asked: hist().filter((h) => h.ts >= since).length, reviewed, focusMin, cards: deck().length, streak: get().streak || 0, xp: get().xp || 0 };
 }
 
 module.exports = { weekStats, listCards, addCard, dueCards, gradeCard, cardStats, removeCard, modelCache, load, get, save, setKey, getKey, publicSettings, addHistory, listHistory, removeHistory, clearHistory, DEFAULTS };

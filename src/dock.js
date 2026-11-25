@@ -11,7 +11,9 @@ const voice = require('./voice');
 
 const PET = { w: 190, h: 176 };                    // the pet's own area, always at the bottom of the window
 const PANEL = { w: 404, h: 540 };                  // the panel sits above it and shrinks on short screens
-let win = null, open = false, deps = null, pos = null, bubble = false, hiddenForOverlay = false;
+let win = null, open = false, pop = false, popH = 150, deps = null, pos = null, bubble = false, hiddenForOverlay = false;
+const POP_W = 344;
+let focusSession = null;
 const BUBBLE_H = 150;                                // extra height while the pet is speaking, so a long bubble is never cut off   // pos: { side: 'left' | 'right', bottom: screen y of the pet's bottom edge }
 
 const openOut = (u) => (process.env.TITO_DOCK_HIDDEN ? Promise.resolve() : shell.openExternal(u));   // tests never open a real browser or app
@@ -29,12 +31,13 @@ function bounds() {
   const wa = workArea(), right = !pos || pos.side !== 'left';
   const minPanel = 300;
   let bottom = pos && Number.isFinite(pos.bottom) ? pos.bottom : wa.y + wa.height - 8;
-  bottom = Math.min(Math.max(bottom, wa.y + PET.h + (open ? minPanel : 0)), wa.y + wa.height);
+  bottom = Math.min(Math.max(bottom, wa.y + PET.h + (open ? minPanel : pop ? Math.min(popH, 200) : 0)), wa.y + wa.height);
   const panelH = open ? Math.min(PANEL.h, bottom - wa.y - PET.h) : 0;
-  const w = open ? PANEL.w : PET.w, h = PET.h + panelH + (bubble && !open ? BUBBLE_H : 0);
+  const popExtra = pop && !open ? Math.min(popH, bottom - wa.y - PET.h) : 0;
+  const w = open ? PANEL.w : pop ? POP_W : PET.w, h = PET.h + panelH + popExtra + (bubble && !open && !pop ? BUBBLE_H : 0);
   return { x: right ? wa.x + wa.width - w - 6 : wa.x + 6, y: bottom - h, width: w, height: h };
 }
-function apply() { if (win && !win.isDestroyed()) { win.setBounds(bounds()); send('dock:layout', { open, side: pos ? pos.side : 'right' }); } }
+function apply() { if (win && !win.isDestroyed()) { win.setBounds(bounds()); send('dock:layout', { open, pop, side: pos ? pos.side : 'right' }); } }
 
 function ensure() {
   if (win && !win.isDestroyed()) return win;
@@ -49,6 +52,7 @@ function ensure() {
   win.loadFile(path.join(__dirname, '..', 'renderer', 'dock.html'));
   win.once('ready-to-show', () => { if (store.get().dockOn !== false) win.showInactive(); });
   win.on('closed', () => { win = null; });
+  win.on('blur', () => { if (pop && !open) setTimeout(() => { if (pop && win && !win.isDestroyed() && !win.isFocused()) setPop(false); }, 400); });   // clicking elsewhere closes the small popup
   return win;
 }
 
@@ -57,8 +61,9 @@ function toggleDock() {
   if (win.isVisible()) { win.hide(); store.save({ dockOn: false }); } else { win.showInactive(); store.save({ dockOn: true }); }
   return win.isVisible();
 }
-function openPanel(tab) { ensure(); open = true; apply(); win.show(); win.focus(); send('dock:tab', tab || null); }
-function setOpen(v) { open = !!v; apply(); if (open && win) win.focus(); }
+function openPanel(tab) { ensure(); open = true; pop = false; apply(); win.show(); win.focus(); send('dock:tab', tab || null); }
+function setOpen(v) { open = !!v; if (open) { pop = false; bubble = false; } apply(); if (open && win) win.focus(); }
+function setPop(v) { pop = !!v; if (pop) { open = false; bubble = false; } apply(); if (pop && win && !process.env.TITO_DOCK_HIDDEN) win.focus(); }
 
 // ------------------------------------------------------------------ alerts (reminders, routines, todos)
 const ROUTINE_SAY = {
@@ -84,16 +89,20 @@ function onTaskEvent(e) {
 }
 
 // ------------------------------------------------------------------ commands (typed or spoken)
+const TEACH_SYSTEM = [
+  'You are Tito, a curious, friendly 10 year old learner. A student is teaching you a topic out loud (the Feynman technique). Judge their explanation honestly, kindly and accurately.',
+  'Reply with ONLY one JSON object, no markdown: {"score":0-100,"good":[up to 3 things they explained correctly],"gaps":[up to 3 important things they left out],"wrong":[up to 3 mistakes, each with the correct fact],"question":"one short, curious follow-up question a child would ask that probes the biggest gap","cards":[up to 3 {"front":"question","back":"short answer"} for the gaps and mistakes],"praise":"one short encouraging sentence"}.',
+  'Score the correctness and completeness for a learner of that level. If the explanation is too short or off topic, say so in "wrong" and score low. Answer in the same language style as the student (English, Hindi or Hinglish). Keep every string short.',
+].join('\n');
+
 /** Rules did not understand it (or a reminder has no time): ask the AI. It answers in its own small JSON format (not Tito's explain format),
  *  which also lets it chat normally. Returns a result, or null when no AI is available. */
-const BRAIN = [
-  'You are the command brain of Tito, a friendly desktop pet. The user writes in English, Hindi or Hinglish.',
-  'Reply with ONLY one JSON object, no markdown and no other words. Keys: "action", and as needed "text", "at", "query", "source", "open", "reply".',
-  'action is one of: "reminder", "todo", "todo_done", "todo_delete", "reminder_delete", "reminder_move", "routine_add", "routine_set", "routine_remove", "card_add", "exam_add", "play", "search", "open", "tab", "chat".',
-  '- todo_done / todo_delete / reminder_delete / reminder_move: "text" is words from the item; reminder_move also needs "at". routine_add: "name" and "times" (array of HH:MM). routine_set: "name", optional "times" (HH:MM array) and "on" (true or false). routine_remove: "name". card_add: "front" and "back". exam_add: "name" and "at" (YYYY-MM-DDTHH:MM). tab: "tab" is today, study, media, daily, cards or chat.',
-  '- reminder: "text" is what to be reminded about (short, may be empty), "at" is the local date and time as YYYY-MM-DDTHH:MM worked out from the current time given below. A bare "11.30" or "11:30" means the next 11:30. Optional "open": something to open when it fires, either a site or app name (youtube, whatsapp, gmail, vs code...) or "youtube: some search words" for a video search.',
-  '- todo: "text" is the task. play: "source" is youtube or spotify and "query" is what to play. search: "query". open: "open" is a site or app name or an https address.',
-  '- chat: anything else, including questions and small talk; put a helpful answer of 1 to 3 short plain sentences in "reply", in the same language style as the user. If a reminder has no clear time, use chat and ask for the time in "reply".',
+const ASSISTANT = [
+  'You are Tito, a friendly, smart desktop assistant and study buddy who lives on the user\'s screen. You chat about anything, explain things clearly and write code. The user writes in English, Hindi or Hinglish: answer in the same language style.',
+  'Format answers in Markdown: short paragraphs, lists, **bold** for key words, and fenced code blocks with the language name (```python) for ALL code, so it can be copied. Be accurate and as brief as the question allows. If something important is unclear (which site, what time, which item), do not guess: ask one short clarifying question.',
+  'If the user wants Tito to DO something inside Tito (a reminder, to-do, music, a web search, opening a site or app, routines, flashcards, exams, switching tab), reply with ONLY one line and no other text: ACTION {json}. The json has "action" and as needed "text", "at", "query", "source", "open", "name", "times", "on", "front", "back", "tab".',
+  'Actions: reminder (text, "at" as local YYYY-MM-DDTHH:MM worked out from the current time given below, a bare "11.30" means the next 11:30, optional "open": a site or app name like youtube, whatsapp, vs code, or "youtube: search words" for a video search); todo (text); todo_done, todo_delete, reminder_delete (text = words from the item); reminder_move (text, at); routine_add (name, times as HH:MM array); routine_set (name, optional times and on:true/false); routine_remove (name); card_add (front, back); exam_add (name, at); play (source youtube or spotify, query); search (query); open (open = site or app name or https address); tab (tab = today, study, media, daily or chat).',
+  'If a reminder has no clear time, do not use ACTION: ask for the time in plain text.',
 ].join('\n');
 function extractJson(text) {
   const m = String(text || '').match(/\{[\s\S]*\}/); if (!m) return null;
@@ -101,17 +110,19 @@ function extractJson(text) {
   return null;
 }
 async function aiAssist(text, history = []) {
-  const engine = require('./engine'); const now = new Date();
-  const system = BRAIN + '\nCurrent local time: ' + now.toString() + '.';
-  let r; try { r = await engine.ask({ images: [], turns: [...history.slice(-6).map((h) => ({ role: h.role === 'user' ? 'user' : 'assistant', text: String(h.text).slice(0, 300) })), { role: 'user', text: String(text).slice(0, 600) }], task: 'explain', rawSystem: system }); } catch { return null; }
+  const engine = require('./engine'); const now = new Date(); const nm = store.get().userName;
+  const system = ASSISTANT + '\nCurrent local time: ' + now.toString() + '.' + (nm ? ' The user is called ' + nm + '.' : '');
+  let r; try { r = await engine.ask({ images: [], turns: [...history.slice(-8).map((h) => ({ role: h.role === 'user' ? 'user' : 'assistant', text: String(h.text).slice(0, 1200) })), { role: 'user', text: String(text).slice(0, 2000) }], task: 'explain', rawSystem: system, rawJson: false, maxTokens: 1800 }); } catch { return null; }
   if (!r || !r.ok || !r.result || !r.result.answer) return null;
-  const j = extractJson(r.result.answer);
-  if (!j) return { ok: true, intent: { type: 'chat' }, anim: 'talking', say: String(r.result.answer).replace(/[{}"]/g, '').replace(/\b(title|answer|kind|mood|chips|search|image_query|due|due_title)\s*:/gi, '').trim().slice(0, 400) || 'Hmm, say that again?' };
+  const ans = String(r.result.answer).trim();
+  const am = ans.match(/^\s*ACTION\s*:?\s*(\{[\s\S]*\})\s*$/i); let j = null;
+  if (am) { try { j = JSON.parse(am[1]); } catch { j = null; } } else if (/^\s*\{[\s\S]*"action"[\s\S]*\}\s*$/.test(ans)) j = extractJson(ans);
+  if (!j) return { ok: true, intent: { type: 'chat' }, anim: 'talking', say: ans.slice(0, 8000), md: true };
   const act = String(j.action || 'chat').toLowerCase();
   if (act === 'reminder') {
     const at = Date.parse(j.at);
     if (Number.isFinite(at) && at > Date.now() - 60000) {
-      let open = j.open ? resolveOpen(String(j.open)) : null;
+      const open = j.open ? resolveOpen(String(j.open)) : null;
       return exec({ type: 'reminder', text: String(j.text || '').slice(0, 200) || 'Reminder', at, repeat: null, kind: 'reminder', whenGuessed: false, open: open || intent.findTarget(String(j.text || '') + ' ' + text) }, text, true);
     }
     return { ok: false, intent: { type: 'chat' }, anim: 'confused', say: String(j.reply || 'What time should I remind you?').slice(0, 300) };
@@ -122,14 +133,26 @@ async function aiAssist(text, history = []) {
     reminder_move: { type: 'reminder_move', query: q, at: Date.parse(j.at) }, routine_add: { type: 'routine_add', name: String(j.name || q || 'Routine'), times: Array.isArray(j.times) ? j.times : [] },
     routine_set: { type: 'routine_set', name: q, times: Array.isArray(j.times) ? j.times : undefined, on: typeof j.on === 'boolean' ? j.on : undefined }, routine_remove: { type: 'routine_remove', name: q },
     card_add: { type: 'card_add', front: String(j.front || ''), back: String(j.back || '') }, exam_add: { type: 'exam_add', name: String(j.name || q || 'Exam'), at: Date.parse(j.at) }, tab: { type: 'tab', tab: String(j.tab || 'today') },
+    todo: { type: 'todo', text: String(j.text || '') }, play: { type: 'play', source: j.source === 'spotify' ? 'spotify' : 'youtube', query: String(j.query || j.text || '') }, search: { type: 'search', query: String(j.query || j.text || '') },
   };
-  if (map[act]) return exec(map[act], text, true);
-  if (act === 'todo' && j.text) return exec({ type: 'todo', text: String(j.text) }, text, true);
-  if (act === 'play' && (j.query || j.text)) return exec({ type: 'play', source: j.source === 'spotify' ? 'spotify' : 'youtube', query: String(j.query || j.text) }, text, true);
-  if (act === 'search' && (j.query || j.text)) return exec({ type: 'search', query: String(j.query || j.text) }, text, true);
+  if (map[act] && (act !== 'todo' || j.text) && (!['play', 'search'].includes(act) || map[act].query || map[act].text)) return exec(map[act], text, true);
   if (act === 'open' && j.open) { const tg = resolveOpen(String(j.open)); if (tg) return exec({ type: 'open', target: tg }, text, true); }
-  return { ok: true, intent: { type: 'chat' }, anim: 'talking', say: String(j.reply || j.text || 'Okay.').slice(0, 500) };
+  return { ok: true, intent: { type: 'chat' }, anim: 'talking', say: String(j.reply || j.text || 'Okay.').slice(0, 800), md: true };
 }
+/** Finds a site by its name by checking the likely addresses (unstop -> unstop.com). Null when none answers. */
+async function resolveSite(name) {
+  const slug = String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, ''); if (slug.length < 2) return null;
+  const hosts = [slug + '.com', slug + '.in', slug + '.org', slug + '.io', slug + '.co', slug + '.net', slug + '.ai'];
+  const probe = async (h) => {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 3500);
+    try { const r = await fetch('https://' + h, { method: 'GET', redirect: 'follow', signal: ctl.signal, headers: { 'user-agent': search.UA } }); return r.status < 500 && r.status !== 404 && r.status !== 410 ? { host: h, url: r.url || 'https://' + h } : null; }
+    catch { return null; } finally { clearTimeout(t); }
+  };
+  const hit = (await Promise.all(hosts.map(probe))).find(Boolean); if (!hit) return null;
+  let u; try { u = new URL(hit.url); } catch { u = null; }
+  return { label: String((u && u.hostname) || hit.host).replace(/^www\./, ''), kind: 'url', value: (u && u.origin) || 'https://' + hit.host };
+}
+const askOpen = (name) => ({ ok: true, anim: 'confused', say: `I could not find a website called "${name}". What should I do?`, ask: { options: [{ label: 'Search the web', cmd: 'search ' + name }, { label: 'Search on Google', url: 'https://www.google.com/search?q=' + encodeURIComponent(name) }] } });
 /** "youtube: lofi songs", "https://...", or a plain site / app name -> an openable target. */
 function resolveOpen(s) {
   const yt = s.match(/^youtube\s*[:\-]\s*(.+)$/i); if (yt) return { label: 'YouTube', kind: 'url', value: media.youtubeSearchUrl(yt[1].trim()) };
@@ -148,15 +171,16 @@ async function exec(c, text, viaAi) {
   const settings = store.get();
   switch (c.type) {
     case 'reminder': {
+      if (c.openName && !c.open) { c.open = await resolveSite(c.openName); if (!c.open) c.text = c.openName + ' (I could not find a website, so there is no Open button)'; }
       if (c.whenGuessed) {                                   // never guess a time: let the AI work it out, otherwise ask
         if (!viaAi) { const a = await aiAssist(text, chatHistory); if (a) return a; }
         return { ok: false, intent: c, anim: 'confused', say: 'What time should I remind you? For example: "remind me at 5 pm to call mom" or "kal 8 baje reminder".' };
       }
       const r = tasks.addReminder(c.text, c.at, { repeat: c.repeat, kind: c.kind, open: c.open });
       send('dock:data', tasks.snapshot());
-      return { ok: true, intent: c, anim: 'checklist', say: `Okay. I will remind you ${c.text && c.text !== 'Reminder' ? 'to ' + c.text + ' ' : ''}${c.repeat ? 'every ' + (c.repeat === 'daily' ? 'day' : c.repeat) + ', starting ' : ''}${fmtWhen(c.at)}.` + (c.open ? ` There will be an Open ${c.open.label} button.` : ''), reminder: r };
+      return { ok: true, intent: c, anim: 'checklist', undo: r && { kind: 'reminder', id: r.id }, say: `Okay. I will remind you ${c.text && c.text !== 'Reminder' ? 'to ' + c.text + ' ' : ''}${c.repeat ? 'every ' + (c.repeat === 'daily' ? 'day' : c.repeat) + ', starting ' : ''}${fmtWhen(c.at)}.` + (c.open ? ` There will be an Open ${c.open.label} button.` : ''), reminder: r };
     }
-    case 'todo': { if (!c.text) return { ok: false, say: 'What should I add to your list?' }; tasks.addTodo(c.text); send('dock:data', tasks.snapshot()); return { ok: true, intent: c, anim: 'checklist', say: `Added "${c.text}" to your list.` }; }
+    case 'todo': { if (!c.text) return { ok: false, say: 'What should I add to your list?' }; const t0 = tasks.addTodo(c.text); send('dock:data', tasks.snapshot()); return { ok: true, intent: c, anim: 'checklist', say: `Added "${c.text}" to your list.`, undo: t0 && { kind: 'todo', id: t0.id } }; }
     case 'routine': {
       const r = tasks.findRoutine(c.name); if (!r) return { ok: false, say: `I do not have a "${c.name}" routine.` };
       tasks.markRoutine(r.id); send('dock:data', tasks.snapshot()); return { ok: true, intent: c, anim: 'tick_done', say: `Got it. ${r.name} done.` };
@@ -164,7 +188,7 @@ async function exec(c, text, viaAi) {
     // ---- upkeep by command: to-dos, reminders, routines, flashcards, exams, tabs, preferences
     case 'todo_done': {
       const t = tasks.findTodo(c.query, true);
-      if (t) { tasks.toggleTodo(t.id, true); refresh(); return { ok: true, intent: c, anim: 'celebrate', say: `Done: ${t.text}.` }; }
+      if (t) { tasks.toggleTodo(t.id, true); refresh(); return { ok: true, intent: c, anim: 'celebrate', say: `Done: ${t.text}.`, undo: { kind: 'todo_done', id: t.id } }; }
       const r = tasks.findRoutine(c.query); if (r) { tasks.markRoutine(r.id); refresh(); return { ok: true, intent: c, anim: 'tick_done', say: `${r.name} done.` }; }
       return notFound('that on your list', c.query);
     }
@@ -178,7 +202,7 @@ async function exec(c, text, viaAi) {
       const r = tasks.findReminder(c.query); if (!r) return notFound('a reminder', c.query); if (!Number.isFinite(c.at)) return { ok: false, intent: c, say: 'What time should I move it to?' };
       tasks.moveReminder(r.id, c.at); refresh(); return { ok: true, intent: c, anim: 'checklist', say: `Moved "${r.text}" to ${fmtWhen(c.at)}.` };
     }
-    case 'routine_add': { const r = tasks.saveRoutine({ name: c.name, times: c.times || [], icon: 'star', anim: 'tick_done', on: true }); refresh(); return { ok: true, intent: c, anim: 'checklist', say: `Added the routine ${r.name}${r.times.length ? ' at ' + r.times.join(', ') : ''}.` }; }
+    case 'routine_add': { const r = tasks.saveRoutine({ name: c.name, times: c.times || [], icon: 'star', anim: 'tick_done', on: true }); refresh(); return { ok: true, intent: c, anim: 'checklist', undo: { kind: 'routine', id: r.id }, say: `Added the routine ${r.name}${r.times.length ? ' at ' + r.times.join(', ') : ''}.` }; }
     case 'routine_remove': { const r = tasks.findRoutine(c.name); if (!r) return notFound('a routine', c.name); tasks.removeRoutine(r.id); refresh(); return { ok: true, intent: c, anim: 'checklist', say: `Removed the routine ${r.name}.` }; }
     case 'routine_set': {
       const r = tasks.setRoutine(c.name, { times: c.times, on: c.on }); if (!r) return notFound('a routine', c.name); refresh();
@@ -187,7 +211,7 @@ async function exec(c, text, viaAi) {
     case 'water_goal': { const g = tasks.setWaterGoal(c.n); refresh(); return { ok: true, intent: c, anim: 'drink_water', say: `Water goal: ${g} glasses a day.` }; }
     case 'card_add': {
       if (!c.front || !c.back) return { ok: false, intent: c, say: 'Tell me both sides, like "add flashcard photosynthesis = how plants make food".' };
-      const x = store.addCard(c.front, c.back); send('dock:cards'); return { ok: !!x, intent: c, anim: 'checklist', say: `Saved a flashcard for "${c.front}".` };
+      const x = store.addCard(c.front, c.back); send('dock:cards'); return { ok: !!x, intent: c, anim: 'checklist', undo: x && { kind: 'card', id: x.id }, say: `Saved a flashcard for "${c.front}".` };
     }
     case 'card_delete': { const f = tasks.best(store.listCards(), c.query, 'front'); if (!f) return notFound('a flashcard', c.query); store.removeCard(f.id); send('dock:cards'); return { ok: true, intent: c, anim: 'checklist', say: `Removed the flashcard "${f.front}".` }; }
     case 'exam_add': {
@@ -199,9 +223,14 @@ async function exec(c, text, viaAi) {
     case 'focus_stop': send('dock:stopFocus'); return { ok: true, intent: c, say: 'Focus stopped.' };
     case 'pref': {
       store.save({ [c.key]: c.value }); for (const w of require('electron').BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.send('settings:changed', store.publicSettings());
-      return { ok: true, intent: c, anim: 'success', say: c.key === 'ringtone' ? `Ringtone: ${c.value}.` : c.key === 'sounds' ? `Sounds ${c.value ? 'on' : 'off'}.` : `Voice: ${c.value}.` };
+      return { ok: true, intent: c, anim: 'success', say: c.key === 'ringtone' ? `Ringtone: ${c.value}.` : c.key === 'sounds' ? `Sounds ${c.value ? 'on' : 'off'}.` : c.key === 'userName' ? `Nice to meet you, ${c.value}.` : c.key === 'focusGuard' ? `Focus Guard ${c.value ? 'on' : 'off'}.` : `Voice: ${c.value}.` };
     }
-    case 'timer': { tasks.addReminder('Timer done: ' + c.label, Date.now() + c.ms, { kind: 'reminder' }); send('dock:data', tasks.snapshot()); return { ok: true, intent: c, anim: 'checklist', say: `Timer set for ${c.label}.` }; }
+    case 'brief': showBrief(); return { ok: true, intent: c, anim: 'greeting', say: 'Here is your day.' };
+    case 'focus_report': {
+      const f = store.get().lastFocus; if (!f) return { ok: true, intent: c, anim: 'confused', say: 'No focus round yet. Say "start focus" and I will keep you on track.' };
+      return { ok: true, intent: c, anim: f.score >= 80 ? 'celebrate' : 'thinking', md: true, say: `**Last focus round**\n\n- Focus score: **${f.score}%**\n- Studied: **${Math.round(f.onSec / 60)} min**, drifted: **${Math.round(f.badSec / 60)} min**\n${f.top && f.top.length ? '- Top distractions: ' + f.top.map((x) => x.label + ' (' + Math.round(x.sec / 60) + ' min)').join(', ') + '\n' : ''}- Nudges: ${f.nudges}` };
+    }
+    case 'timer': { const tr = tasks.addReminder('Timer done: ' + c.label, Date.now() + c.ms, { kind: 'reminder' }); send('dock:data', tasks.snapshot()); return { ok: true, intent: c, anim: 'checklist', undo: tr && { kind: 'reminder', id: tr.id }, say: `Timer set for ${c.label}.` }; }
     case 'focus': setOpen(true); send('dock:tab', 'study'); send('dock:startFocus'); return { ok: true, intent: c, say: 'Focus time. 25 minutes, I will stay quiet.' };
     case 'list': {
       const snap = tasks.snapshot(); const todos = snap.todos.filter((t) => !t.done).slice(0, 4).map((t) => t.text), rem = snap.reminders.slice(0, 3).map((r) => `${r.text} (${fmtWhen(r.at)})`);
@@ -215,19 +244,32 @@ async function exec(c, text, viaAi) {
       return { ok: true, intent: c, anim: 'success', say: `Switched to the ${c.theme} theme.` };
     }
     case 'settings': deps.openSettings('settings'); return { ok: true, intent: c, say: 'Opening settings.' };
+    case 'open_site': {
+      const tg = await resolveSite(c.name); if (!tg) return askOpen(c.name);
+      openTarget(tg); return { ok: true, intent: c, anim: 'success', say: `Opening ${tg.label}.` };
+    }
+    case 'teach': setOpen(true); send('dock:teach', { topic: c.topic || '' }); return { ok: true, intent: c, anim: 'listening', say: c.topic ? `Okay, teach me ${c.topic}.` : 'Okay, what should you teach me?' };
     case 'open': { const ok = openTarget(c.target); return { ok, intent: c, anim: ok ? 'success' : 'confused', say: ok ? `Opening ${c.target.label}.` : `I cannot open ${c.target.label}.` }; }
     case 'media': return { ok: true, intent: c, media: c.action, seconds: c.seconds || 0 };
     case 'play': {
       const q = c.query;
-      if (c.source === 'spotify') { openSpotify(q); return { ok: true, intent: c, anim: 'headphones', say: `Opening Spotify for "${q}".` }; }
+      if (c.source === 'spotify') {
+        const sp = String(q).match(/open\.spotify\.com\/(?:intl-[a-z]+\/)?(track|album|playlist|artist|episode|show)\/([A-Za-z0-9]+)/);
+        if (sp) return { ok: true, intent: c, anim: 'headphones', play: { source: 'spotify', kind: sp[1], id: sp[2] }, say: 'Here it is.' };
+        openSpotify(q); return { ok: true, intent: c, anim: 'headphones', say: `Opening Spotify for "${q}".` };
+      }
       const id = media.youtubeId(q); const key = store.getKey('youtube');
       if (id) return { ok: true, intent: c, anim: 'headphones', play: { source: 'youtube', video: await media.youtubeInfo(id) }, say: 'Playing.' };
       if (key) {
-        const list = await media.youtubeSearch(q, key);
+        let list = null; try { list = await media.youtubeSearch(q, key); } catch (e) { return { ok: false, intent: c, anim: 'confused', say: 'YouTube did not accept the key: ' + e.message, ask: { options: [{ label: 'Open settings', settings: true }, { label: 'Search on YouTube', url: media.youtubeSearchUrl(q) }] } }; }
         if (list && list.length) return { ok: true, intent: c, anim: 'headphones', play: { source: 'youtube', video: list[0], more: list.slice(1) }, say: `Playing "${list[0].title}".` };
+        return { ok: true, intent: c, anim: 'confused', say: `I could not find "${q}" on YouTube.`, ask: { options: [{ label: 'Search on YouTube', url: media.youtubeSearchUrl(q) }] } };
       }
-      openOut(media.youtubeSearchUrl(q));
-      return { ok: true, intent: c, anim: 'headphones', say: key ? `I could not find "${q}". I opened the YouTube search for you.` : 'I opened the YouTube search. To play inside Tito, paste a video link, or add a free YouTube key in Settings.' };
+      return { ok: true, intent: c, anim: 'confused', say: 'To play a song by name inside Tito I need a free YouTube key. Or paste a video link and I will play it right away.', ask: { options: [{ label: 'Add a YouTube key', settings: true }, { label: 'Search on YouTube', url: media.youtubeSearchUrl(q) }] } };
+    }
+    case 'ask': {                                   // a question: the AI answers it (with code, lists...); with no AI, a web lookup instead
+      if (!viaAi) { const a = await aiAssist(text, chatHistory); if (a) return a; }
+      return exec({ type: 'search', query: c.query }, text, true);
     }
     case 'search': {
       const r = await search.lookup(c.query, { searx: settings.searxUrl });
@@ -312,6 +354,29 @@ function registerCards() {
 function registerIpc() {
   handle('dock:data', () => tasks.snapshot());
   handle('dock:open', (v) => { setOpen(v); return open; });
+  handle('dock:pop', (v) => { setPop(v); return pop; });
+  handle('dock:popH', (h) => { const n = Math.max(80, Math.min(440, Math.round(Number(h) || 150))); if (n !== popH) { popH = n; if (pop && !open) apply(); } return popH; });
+  handle('dock:briefData', () => briefData());
+  handle('undo:run', ({ kind, id }) => {
+    if (kind === 'todo') tasks.removeTodo(id); else if (kind === 'reminder') tasks.removeReminder(id); else if (kind === 'card') store.removeCard(id);
+    else if (kind === 'routine') tasks.removeRoutine(id); else if (kind === 'todo_done') tasks.toggleTodo(id, false);
+    send('dock:cards'); return tasks.snapshot();
+  });
+  // Focus Guard
+  handle('focus:start', () => {
+    if (store.get().focusGuard === false) return { ok: true, guard: false };
+    const g = require('./focusguard'); focusSession = g.createSession({ words: store.get().guardWords, onNudge: (n) => send('dock:nudge', n), onLive: (l) => send('dock:focusLive', l) });
+    if (!process.env.TITO_DOCK_HIDDEN) g.startPoller((title, proc) => { if (focusSession) focusSession.feed(title, proc, 3); });
+    return { ok: true, guard: true };
+  });
+  handle('focus:pause', (min) => { if (focusSession) focusSession.pause(Math.max(1, Math.min(30, Number(min) || 5)) * 60); return true; });
+  handle('focus:stop', () => {
+    const g = require('./focusguard'); g.stopPoller(); const rep = focusSession ? focusSession.report() : null; focusSession = null;
+    if (!rep || !rep.minutes) return { ok: true, report: rep };
+    rep.xp = Math.max(1, Math.round(rep.score / 10) + Math.round(rep.onSec / 300));
+    const log = [...(store.get().focusLog || []), { ts: Date.now(), min: Math.round(rep.onSec / 60), score: rep.score }].slice(-80);
+    store.save({ xp: (store.get().xp || 0) + rep.xp, focusLog: log, lastFocus: rep }); return { ok: true, report: rep };
+  });
   handle('dock:bubble', (v) => { if (bubble !== !!v) { bubble = !!v; apply(); } return bubble; });
   handle('target:open', (t) => ({ ok: openTarget(t) }));
   handle('dock:hide', () => { win.hide(); store.save({ dockOn: false }); return true; });
@@ -357,6 +422,20 @@ function registerIpc() {
     return r.ok ? { ok: true, title: r.result.title, answer: r.result.answer } : { ok: false, message: r.message || 'No answer available.' };
   });
   handle('media:playerUrl', async (id) => { if (!/^[\w-]{11}$/.test(String(id))) return { ok: false }; const port = await ensurePlayer(); return { ok: true, url: `http://127.0.0.1:${port}/player?v=${id}` }; });
+  handle('teach:evaluate', async ({ topic, text, round, question }) => {
+    const engine = require('./engine');
+    const user = `Topic: ${String(topic).slice(0, 120)}\nRound ${round || 1} of 3${question ? '\nYou asked the student: ' + String(question).slice(0, 200) : ''}\nThe student explains:\n"""${String(text).slice(0, 1800)}"""`;
+    let r; try { r = await engine.ask({ images: [], turns: [{ role: 'user', text: user }], task: 'explain', rawSystem: TEACH_SYSTEM }); } catch (e) { return { ok: false, message: String(e.message || e) }; }
+    if (!r || !r.ok || !r.result) return { ok: false, message: (r && r.message) || 'I need an AI key to judge your explanation. Add a free Gemini key in Settings.' };
+    const j = extractJson(r.result.answer); if (!j) return { ok: false, message: 'I could not read my own notes. Please try again.' };
+    const list = (a, n) => (Array.isArray(a) ? a : []).map((x) => String(x).slice(0, 170)).filter(Boolean).slice(0, n);
+    const cards = (Array.isArray(j.cards) ? j.cards : []).map((c) => ({ front: String(c.front || '').slice(0, 120), back: String(c.back || '').slice(0, 300) })).filter((c) => c.front && c.back).slice(0, 3);
+    return { ok: true, score: Math.max(0, Math.min(100, Math.round(Number(j.score) || 0))), good: list(j.good, 3), gaps: list(j.gaps, 3), wrong: list(j.wrong, 3), question: String(j.question || '').slice(0, 220), praise: String(j.praise || '').slice(0, 170), cards };
+  });
+  handle('teach:finish', ({ topic, scores }) => {
+    const sc = (Array.isArray(scores) ? scores : []).map(Number).filter(Number.isFinite); const avg = sc.length ? Math.round(sc.reduce((x, y) => x + y, 0) / sc.length) : 0;
+    const gain = Math.max(1, Math.round(avg / 4)); store.save({ xp: (store.get().xp || 0) + gain }); return { ok: true, avg, gain, stats: store.cardStats() };
+  });
   handle('media:key', async (action) => ({ ok: await media.pressKey(action) }));
   handle('media:spotify', (q) => { openSpotify(q); return true; });
   handle('media:youtubeInfo', async (text) => { const id = media.youtubeId(text); return id ? { ok: true, video: await media.youtubeInfo(id) } : { ok: false, message: 'That is not a YouTube link.' }; });
@@ -370,8 +449,8 @@ function registerIpc() {
 // ------------------------------------------------------------------ shortcuts
 const SC_DEFAULT = { voice: 'CommandOrControl+Shift+V', todo: 'CommandOrControl+Shift+T', dock: 'CommandOrControl+Shift+D', quiz: 'CommandOrControl+Shift+K' };
 const scAction = {
-  voice: () => { ensure(); if (!win.isVisible()) win.showInactive(); setOpen(true); send('dock:voice'); },
-  todo: () => { ensure(); if (!win.isVisible()) win.showInactive(); setOpen(true); send('dock:tab', 'today'); send('dock:focus', 'todo'); },
+  voice: () => { ensure(); if (!win.isVisible()) win.showInactive(); setPop(true); send('dock:pop', { voice: true }); },
+  todo: () => { ensure(); if (!win.isVisible()) win.showInactive(); setPop(true); send('dock:pop', { prefill: 'add todo ' }); },
   dock: () => toggleDock(),
   quiz: () => { ensure(); setOpen(true); send('dock:tab', 'study'); },
 };
@@ -426,6 +505,19 @@ function onOverlayClosed() {
   hiddenForOverlay = false;
 }
 
+/** What the greeting popup shows: next countdowns, the top to-dos, cards due. */
+function briefData() {
+  const snap = tasks.snapshot(); const now = Date.now(); const st = store.cardStats();
+  const rem = snap.reminders.filter((r) => !r.fired && r.at > now).slice(0, 3).map((r) => ({ label: r.text, at: r.at, kind: r.kind === 'deadline' ? 'deadline' : 'reminder' }));
+  const ex = snap.exams.filter((e) => e.date > now).slice(0, 1).map((e) => ({ label: e.name, at: e.date, kind: 'exam' }));
+  return {
+    name: store.get().userName || '', hour: new Date().getHours(), countdowns: [...rem, ...ex].sort((a, b) => a.at - b.at).slice(0, 4),
+    todos: snap.todos.filter((t) => !t.done).slice(0, 4).map((t) => ({ id: t.id, text: t.text })), due: st.due, streak: st.streak,
+    routinesDone: snap.stats.done, routinesTotal: snap.stats.total,
+  };
+}
+function showBrief() { ensure(); if (win && !win.isVisible() && store.get().dockOn !== false) win.showInactive(); setPop(true); send('dock:brief', briefData()); }
+
 function init(d) {
   deps = d;
   setInterval(() => { try { send('dock:idle', require('electron').powerMonitor.getSystemIdleTime()); } catch { /* ignore */ } }, 15000);
@@ -434,8 +526,7 @@ function init(d) {
   session.defaultSession.setPermissionCheckHandler((wc, perm) => perm === 'media' && !!wc && wc.getURL().startsWith('file://'));
   registerIpc(); ensure(); registerShortcuts(); applySettings();
   // once a day, the first time Tito starts after 6 am, the pet gives the morning brief
-  const today = tasks.dayKey();
-  if (store.get().lastBrief !== today && new Date().getHours() >= 6) { store.save({ lastBrief: today }); setTimeout(() => alert({ title: 'Good morning', text: tasks.brief(), anim: 'greeting', tab: 'today' }), 6000); }
+  if (store.get().greetOnStart !== false && !process.env.TITO_DOCK_HIDDEN) setTimeout(showBrief, 5000);        // every start: greeting, countdowns and the to-do list
 }
 
-module.exports = { onOverlayClosed, onSummon, tryShortcuts, applySettings, ignoreClip, registerCards, init, toggleDock, openPanel, setOpen, getWindow: () => win, runCommand, registerShortcuts };
+module.exports = { _feedFocus: (title, proc, dt) => focusSession && focusSession.feed(title, proc, dt), showBrief, onOverlayClosed, onSummon, tryShortcuts, applySettings, ignoreClip, registerCards, init, toggleDock, openPanel, setOpen, getWindow: () => win, runCommand, registerShortcuts };

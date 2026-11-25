@@ -6,7 +6,7 @@ window.addEventListener('DOMContentLoaded', () => { ipcRenderer.invoke('settings
 ipcRenderer.on('settings:changed', (_e, s) => applyTheme(s && s.theme));
 
 const inv = (ch) => (...a) => ipcRenderer.invoke(ch, ...a);
-const EVENTS = ['overlay:open', 'overlay:closed', 'win:tab', 'settings:changed', 'ai:wait', 'packs:progress', 'dock:alert', 'dock:data', 'dock:layout', 'dock:tab', 'dock:voice', 'dock:focus', 'dock:cheer', 'dock:idle', 'dock:summon', 'dock:startFocus', 'dock:stopFocus', 'dock:cards'];
+const EVENTS = ['overlay:open', 'overlay:closed', 'win:tab', 'settings:changed', 'ai:wait', 'packs:progress', 'dock:alert', 'dock:data', 'dock:layout', 'dock:tab', 'dock:voice', 'dock:focus', 'dock:cheer', 'dock:idle', 'dock:summon', 'dock:startFocus', 'dock:stopFocus', 'dock:cards', 'dock:teach', 'dock:pop', 'dock:brief', 'dock:nudge', 'dock:focusLive'];
 
 contextBridge.exposeInMainWorld('tito', {
   getSettings: inv('settings:get'),
@@ -41,13 +41,13 @@ contextBridge.exposeInMainWorld('tito', {
   info: inv('app:info'),
   dock: {
     data: inv('dock:data'), open: inv('dock:open'), hide: inv('dock:hide'), command: inv('dock:command'), brief: inv('dock:brief'), state: inv('dock:state'),
-    bubble: inv('dock:bubble'), openTarget: inv('target:open'),
+    bubble: inv('dock:bubble'), pop: inv('dock:pop'), popH: inv('dock:popH'), briefData: inv('dock:briefData'), undo: inv('undo:run'), focusStart: inv('focus:start'), focusStop: inv('focus:stop'), focusPause: inv('focus:pause'), openTarget: inv('target:open'),
     dragStart: () => ipcRenderer.send('dock:dragstart'), drag: (dx, dy) => ipcRenderer.send('dock:drag', { dx, dy }), dragEnd: () => ipcRenderer.send('dock:dragend'),
     todoAdd: inv('todo:add'), todoToggle: inv('todo:toggle'), todoRemove: inv('todo:remove'), todoClearDone: inv('todo:clearDone'),
     reminderAdd: inv('reminder:add'), reminderRemove: inv('reminder:remove'), reminderSnooze: inv('reminder:snooze'), reminderAck: inv('reminder:ack'),
     routineMark: inv('routine:mark'), routineUnmark: inv('routine:unmark'), routineSave: inv('routine:save'), routineRemove: inv('routine:remove'),
     importIcs: inv('ics:import'), examAdd: inv('exam:add'), examRemove: inv('exam:remove'),
-    mediaKey: inv('media:key'), playerUrl: inv('media:playerUrl'), spotify: inv('media:spotify'), youtubeInfo: inv('media:youtubeInfo'),
+    mediaKey: inv('media:key'), teachEvaluate: inv('teach:evaluate'), teachFinish: inv('teach:finish'), playerUrl: inv('media:playerUrl'), spotify: inv('media:spotify'), youtubeInfo: inv('media:youtubeInfo'),
     lookup: inv('search:lookup'), explainText: inv('clip:explain'), images: inv('search:images'), transcribe: inv('voice:transcribe'),
   },
   overlayReady: () => ipcRenderer.send('overlay:ready'),

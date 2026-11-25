@@ -1,6 +1,6 @@
 {
   "name": "tito",
-  "version": "1.2.2",
+  "version": "1.4.0",
   "description": "Tito - a cute desktop companion. Press a hotkey, circle anything on your screen, Tito explains it.",
   "main": "main.js",
   "author": "Ayush",

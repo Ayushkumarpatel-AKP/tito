@@ -106,6 +106,22 @@ function parse(raw, now = new Date()) {
   if (!t) return { type: 'unknown', text };
   let m;
 
+  // ---- a pasted link: YouTube plays here, Spotify embeds, any other site opens
+  const um = text.match(/https?:\/\/[^\s]+/i);
+  if (um && text.replace(um[0], '').trim().split(/\s+/).filter(Boolean).length <= 3) {
+    const url = um[0].replace(/[),.;]+$/, '');
+    if (/youtu\.be|youtube\.com/i.test(url)) return { type: 'play', source: 'youtube', query: url };
+    if (/open\.spotify\.com/i.test(url)) return { type: 'play', source: 'spotify', query: url };
+    try { const u = new URL(url); return { type: 'open', target: { label: u.hostname.replace(/^www\./, ''), kind: 'url', value: 'https://' + u.host + u.pathname + u.search } }; } catch { /* not a link after all */ }
+  }
+  // ---- greeting / today's brief, your name, focus report
+  if (/^(?:good\s+(?:morning|afternoon|evening|night)|hello|hi|hey|namaste|namaskar)(?:\s+tito)?$|^(?:brief|my day|plan my day|what'?s up|today'?s plan|aaj ka plan|daily brief)$/.test(t)) return { type: 'brief' };
+  if ((m = t.match(/^(?:call me|my name is|mera naam|you can call me)\s+(.+)$/))) { const n = tidy(m[1]).replace(/\b\w/g, (c) => c.toUpperCase()); if (n) return { type: 'pref', key: 'userName', value: n.slice(0, 30) }; }
+  if (/\b(focus report|how was my focus|focus score|focus stats|focus summary)\b/.test(t)) return { type: 'focus_report' };
+  if ((m = t.match(/^focus guard\s+(on|off)$/))) return { type: 'pref', key: 'focusGuard', value: m[1] === 'on' };
+  // ---- Teach Tito (explain a topic to Tito and get graded)
+  if ((m = t.match(/^(?:teach tito|teach you|let me teach you|i will teach you|i want to teach|feynman(?: mode)?|explain to tito|teach me tito)\s*(?:about\s+|on\s+)?(.*)$/))) return { type: 'teach', topic: tidy(m[1]) };
+
   // ---- media controls (before "play X": "play" alone just resumes)
   if (/^(play|resume|chalu karo|chalao|start)$/.test(t)) return { type: 'media', action: 'play' };
   if (/^(pause|stop|ruko|roko|band karo|gaana band karo|stop the music|pause music)$/.test(t) || /\b(gaana|music|song|video)\b.*\b(roko|ruko|pause|band)\b/.test(t)) return { type: 'media', action: 'pause' };
@@ -174,6 +190,14 @@ function parse(raw, now = new Date()) {
   // ---- open a site or app: "open youtube", "whatsapp kholo"
   if ((m = t.match(/^(?:open|launch|start|kholo|khol do|khol)\s+(.+)$/)) || (m = t.match(/^(.+?)\s+(?:kholo|khol do|khol dena|open karo|open kar do|chalu karo|launch karo|open kro)$/))) {
     const tg = findTarget(t);
+    if (!tg) {                                                                   // a name Tito does not know: find its website, or ask
+      const name = tidy(m[1]).replace(/\b(the|website|site|page|please|app)\b/g, ' ').replace(/\s+/g, ' ').trim();
+      if (name && name.split(' ').length <= 4 && /[a-z]/i.test(name)) {
+        const w0 = parseWhen(name, now);
+        if (w0) { const n2 = tidy(strip(name, w0.cut)).replace(/\b(at|on|by)\b/g, ' ').replace(/\s+/g, ' ').trim(); if (n2) return { type: 'reminder', text: 'Open ' + n2, at: w0.at, whenGuessed: false, repeat: null, kind: 'reminder', openName: n2 }; }
+        else return { type: 'open_site', name };
+      }
+    }
     if (tg) {
       const w = parseWhen(m[1], now);                                         // "open X at 12:04 am" is a reminder that opens X at that time
       if (w) return { type: 'reminder', text: tg.label === 'YouTube' ? tidy(strip(m[1], w.cut)).replace(/^(?:open|play|watch)\s+/, '') : 'Open ' + tg.label, at: w.at, whenGuessed: false, repeat: null, kind: 'reminder', open: tg };
@@ -221,9 +245,9 @@ function parse(raw, now = new Date()) {
   if (/\b(circle|select|explain this|isse samjhao|ye kya hai)\b/.test(t)) return { type: 'circle' };
   if (/\b(show|open|dikhao|kholo)\b.*\b(todo|list|tasks|dock|reminders)\b/.test(t)) return { type: 'dock', tab: 'today' };
 
-  // ---- search / lookup
-  if ((m = t.match(/^(?:search|google|look up|lookup|find|dhundo|khojo)\s+(?:for\s+)?(.+)$/)) || (m = t.match(/^(.+?)\s+(?:search karo|google karo|dhundo|khojo|search kar)$/)) || (m = t.match(/^(?:tell me about|batao|what is|who is|kya hai|kaun hai|explain)\s+(.+)$/)) || (m = t.match(/^(.+?)\s+(?:ke baare mein batao|kya hai|kaun hai|batao)$/)))
-    return { type: 'search', query: tidy(m[1]) };
+  // ---- search / lookup / questions
+  if ((m = t.match(/^(?:search|google|look up|lookup|find|dhundo|khojo)\s+(?:for\s+)?(.+)$/)) || (m = t.match(/^(.+?)\s+(?:search karo|google karo|dhundo|khojo|search kar)$/))) return { type: 'search', query: tidy(m[1]) };
+  if ((m = t.match(/^(?:tell me about|batao|what is|what are|what was|who is|who was|kya hai|kaun hai|explain|define|meaning of)\s+(.+)$/)) || (m = t.match(/^(.+?)\s+(?:ke baare mein batao|kya hai|kaun hai|batao)$/))) return { type: 'ask', query: tidy(m[1]), text };
 
   return { type: 'unknown', text };
 }

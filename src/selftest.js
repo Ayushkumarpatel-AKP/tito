@@ -133,6 +133,10 @@ async function run({ summon, openSettings, showToast, closeOverlay, getOverlay, 
     await sleep(4500); await shot(ov, '17_overlay_pictures'); log.push('extras: ' + JSON.stringify(await js(ov, 'window.__tito.extras()')));
     await js(ov, "window.__tito.fake({ title: 'Quiz', answer: 'What does the library open at? | Nine\\nWhen does it close? | Six\\nWho can help you find a book? | The librarian', kind: 'text', mood: 'happy', chips: [], search: '' }, 'quiz')");
     await sleep(1200); await shot(ov, '18_overlay_quiz'); log.push('quiz: ' + JSON.stringify(await js(ov, 'window.__tito.extras()')));
+    // read aloud plays audio from a data: URL; the page's security policy used to block that, so the Listen button stayed silent
+    const wav = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+    log.push('overlay audio data URL: ' + await js(ov, "new Promise((r) => { const a = new Audio('" + wav + "'); a.onloadedmetadata = () => r('ok'); a.onerror = () => r('BLOCKED'); setTimeout(() => r('timeout'), 4000); })"));
+    log.push('overlay has the voice helper: ' + await js(ov, "typeof window.TitoVoice === 'object' && typeof window.TitoVoice.say === 'function'"));
     closeOverlay(); await sleep(400);
     log.push('overlay hidden: ' + !ov.isVisible());
   } catch (e) { log.push('SELFTEST ERROR ' + (e.stack || e)); }

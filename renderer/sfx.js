@@ -47,18 +47,27 @@
 
   // ---------------------------------------------------------------- natural voice
   let voiceAudio = null;
+  function systemSpeak(text) {
+    return new Promise((resolve) => {
+      if (!window.speechSynthesis) return resolve({ ok: false, message: 'No voice is available on this PC.' });
+      const u = new SpeechSynthesisUtterance(String(text)); const v = speechSynthesis.getVoices();
+      const pick = v.find((x) => /en-(IN|GB|US)/i.test(x.lang) && /natural|online/i.test(x.name)) || v.find((x) => /en-IN/i.test(x.lang)) || v.find((x) => /^en/i.test(x.lang)); if (pick) u.voice = pick;
+      u.onend = () => resolve({ ok: true }); u.onerror = () => resolve({ ok: false, message: 'The Windows voice did not work.' }); speechSynthesis.cancel(); speechSynthesis.speak(u);
+    });
+  }
+  /** Speaks with the natural voice; if that service fails for any reason it falls back to the Windows voice, so read aloud always says something. */
   async function say(text) {
     stopVoice(); let r;
-    try { r = await window.tito.speak(String(text)); } catch (e) { return { ok: false, message: String(e) }; }
+    try { r = await window.tito.speak(String(text)); } catch (e) { r = { ok: false, message: String(e) }; }
     if (r && r.ok) {
-      return new Promise((resolve) => {
-        voiceAudio = new Audio(`data:${r.mime};base64,${r.audio}`); voiceAudio.onended = voiceAudio.onerror = () => resolve({ ok: true }); voiceAudio.play().catch(() => resolve({ ok: false, message: 'Could not play the voice.' }));
+      const played = await new Promise((resolve) => {
+        voiceAudio = new Audio(`data:${r.mime};base64,${r.audio}`); voiceAudio.onended = () => resolve(true); voiceAudio.onerror = () => resolve(false); voiceAudio.play().catch(() => resolve(false));
       });
+      if (played) return { ok: true };
+      r = { ok: false, message: 'Could not play the natural voice, so I used the Windows voice.' };
     }
-    if (r && r.system && window.speechSynthesis) {
-      return new Promise((resolve) => { const u = new SpeechSynthesisUtterance(String(text)); u.onend = u.onerror = () => resolve({ ok: true }); speechSynthesis.cancel(); speechSynthesis.speak(u); });
-    }
-    return r || { ok: false };
+    const sys = await systemSpeak(text);
+    return sys.ok ? { ok: true, note: r && r.message && !r.system ? r.message : '' } : { ok: false, message: (r && r.message) || sys.message };
   }
   function stopVoice() { if (voiceAudio) { try { voiceAudio.pause(); } catch { /* ignore */ } voiceAudio = null; } if (window.speechSynthesis) speechSynthesis.cancel(); }
 

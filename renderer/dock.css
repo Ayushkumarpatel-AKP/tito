@@ -138,3 +138,53 @@ input[type=datetime-local], input[type=date], input[type=time] { border: 0; outl
 #panel header { overflow: hidden; } #tabs { min-width: 0; overflow: hidden; flex: 1 1 0; } .tab { flex: 0 1 auto; min-width: 0; }
 #playerFrame { border-radius: 18px; overflow: hidden; background: #000; } #playerFrame iframe { display: block; }
 .playerr { padding: 14px; border-radius: 16px; background: var(--field); font-weight: 700; font-size: 13px; line-height: 1.4; text-align: center; } .playerr .chip { margin-top: 8px; }
+
+/* ---- keyboard focus: a soft ring, and none after a mouse click (the orange browser outline looked like a glitch) */
+button:focus, input:focus, textarea:focus, select:focus { outline: none; } button:focus-visible { outline: 2px solid var(--a1); outline-offset: 2px; }
+/* ---- player: the title row carries the equaliser instead of floating over the video */
+.nowrow { display: flex; align-items: center; gap: 10px; margin: 8px 2px 4px; } .nowrow .now { flex: 1; margin: 0; }
+.nowrow .eq { position: static; opacity: 0; height: 18px; flex: none; } .nowrow .eq.on { opacity: 1; }
+#ytMore { margin: 6px 0 10px; } #ytMore .item { cursor: pointer; padding: 6px 8px; } #ytMore img { width: 64px; height: 36px; object-fit: cover; border-radius: 8px; flex: none; }
+/* ---- Teach Tito */
+#teach textarea { width: 100%; border: 0; outline: 0; resize: none; font: 600 14px 'Nunito', sans-serif; color: var(--ink); padding: 12px 14px; border-radius: 18px; background: var(--field); box-shadow: inset 0 3px 7px rgb(var(--sh) / .16); margin: 8px 0; line-height: 1.4; }
+#tpQ { max-width: 100%; margin: 8px 0 0; }
+.tpscore { display: flex; align-items: baseline; justify-content: center; gap: 8px; margin: 6px 0 2px; } .tpscore b { font-size: 54px; font-weight: 800; line-height: 1; } .tpscore span { font-size: 12px; font-weight: 700; color: var(--ink2); }
+.tpscore.great b { color: #1fb978; } .tpscore.okay b { color: #f0a020; } .tpscore.low b { color: #ff6b6b; }
+.tppraise { text-align: center; font-weight: 700; font-size: 13.5px; margin: 0 0 8px; } .tpq { text-align: center; font-weight: 700; font-size: 13px; color: var(--ink2); margin: 8px 4px; }
+.tpl { background: var(--field); border-radius: 16px; padding: 8px 12px; margin: 6px 0; font-size: 13px; font-weight: 600; line-height: 1.38; box-shadow: 0 2px 6px rgb(var(--sh) / .1); } .tpl b { display: block; font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px; }
+.tpl div + div { margin-top: 3px; } .tpl.good b { color: #1fb978; } .tpl.gap b { color: #e0900f; } .tpl.wrong b { color: #ff6b6b; }
+
+/* ---- small popup (pet + a short form) and the greeting popup */
+#pop, #brief { position: absolute; bottom: 168px; width: 332px; padding: 12px; border-radius: 26px; animation: popin .3s var(--spring) both; }
+#root.right #pop, #root.right #brief { right: 6px; } #root.left #pop, #root.left #brief { left: 6px; }
+#root.pop #bubble, #root.open #pop, #root.open #brief, #root:not(.pop) #pop, #root:not(.pop) #brief { display: none; }
+#popRes { margin-bottom: 8px; font-size: 13.5px; font-weight: 700; line-height: 1.38; } #popRes .ptxt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; overflow-wrap: anywhere; }
+#popRes .alertbtns, #brief .alertbtns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+#popForm { position: relative; } #popForm input { padding-right: 52px; } #popForm .mic { right: 4px; top: 4px; }
+#popChips { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; } #popChips .chip { font-size: 12px; padding: 6px 11px; }
+#brief { padding: 14px 14px 12px; max-height: 420px; overflow-y: auto; }
+#brief .bhead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; } #brief .bhead b { font-size: 18px; font-weight: 800; } #brief .bhead span { font-size: 12px; font-weight: 700; color: var(--ink2); }
+#brief h6 { margin: 10px 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink2); }
+.cd { display: flex; align-items: center; gap: 10px; background: var(--field); border-radius: 16px; padding: 7px 10px; margin-bottom: 6px; box-shadow: 0 2px 6px rgb(var(--sh) / .1); }
+.cdring { width: 38px; height: 38px; border-radius: 50%; flex: none; background: conic-gradient(var(--a2) calc(var(--p, 1) * 360deg), rgb(var(--sh) / .12) 0); display: grid; place-items: center; } .cdring::after { content: ''; width: 28px; height: 28px; border-radius: 50%; background: var(--field); }
+.cd.deadline .cdring { background: conic-gradient(#ff6b6b calc(var(--p, 1) * 360deg), rgb(var(--sh) / .12) 0); } .cd.exam .cdring { background: conic-gradient(#f0a020 calc(var(--p, 1) * 360deg), rgb(var(--sh) / .12) 0); }
+.cd .cdl { flex: 1; min-width: 0; font-weight: 700; font-size: 13px; overflow-wrap: anywhere; } .cd .cdl small { display: block; font-size: 11px; color: var(--ink2); font-weight: 600; }
+.cd .cdt { font-variant-numeric: tabular-nums; font-weight: 800; font-size: 17px; } .cd.soon .cdt { color: #ff6b6b; }
+#brief .item { margin-bottom: 5px; } .bstats { font-size: 12px; font-weight: 700; color: var(--ink2); margin: 8px 2px 2px; }
+/* ---- chat like a chat: log scrolls, composer sits at the bottom */
+#pane-chat.on { display: flex; flex-direction: column; overflow: hidden; -webkit-mask-image: none; mask-image: none; padding: 0; }
+#chatScroll { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 2px 6px; } #chatDock { flex: none; padding-top: 6px; } #chatDock #cmd { margin: 0; }
+.msg { max-width: 92%; } .msg.tito { max-width: 96%; } .msg .md > :first-child { margin-top: 0; } .msg .md > :last-child { margin-bottom: 0; }
+.md p { margin: 0 0 7px; } .md ul, .md ol { margin: 4px 0 8px; padding-left: 20px; } .md li { margin: 2px 0; } .md blockquote { margin: 6px 0; padding: 2px 10px; border-left: 3px solid var(--a1); color: var(--ink2); } .md hr { border: 0; border-top: 1px solid rgb(var(--sh) / .2); margin: 8px 0; }
+.md .mdh { font-weight: 800; margin: 8px 0 4px; } .md .mdh1 { font-size: 16px; } .md .mdh2 { font-size: 15px; } .md .mdh3, .md .mdh4 { font-size: 14px; }
+.md .mdcode { font: 600 12px Consolas, 'Cascadia Mono', monospace; background: rgb(var(--sh) / .14); padding: 1px 5px; border-radius: 6px; }
+.md .mdlink { color: var(--a2); font-weight: 800; cursor: pointer; text-decoration: underline; overflow-wrap: anywhere; } .md .mdimg { max-width: 100%; max-height: 150px; border-radius: 12px; margin: 2px 4px 4px 0; cursor: pointer; vertical-align: middle; }
+.codeblock { margin: 6px 0 8px; border-radius: 12px; overflow: hidden; background: #1c1f2b; color: #e6e9f5; }
+.cbhead { display: flex; align-items: center; justify-content: space-between; padding: 5px 10px; background: #2a2e3f; font: 700 11px 'Nunito', sans-serif; color: #aab2d5; text-transform: lowercase; }
+.cbcopy { border: 0; cursor: pointer; font: 800 11px 'Nunito', sans-serif; padding: 3px 10px; border-radius: 8px; background: #3b4160; color: #fff; } .cbcopy:hover { background: #4a5180; }
+.codeblock pre { margin: 0; padding: 10px 12px; white-space: pre-wrap; word-break: break-word; font: 500 12px/1.5 Consolas, 'Cascadia Mono', monospace; user-select: text; } .codeblock code { font: inherit; }
+.msg { user-select: text; } .mtools { display: flex; gap: 6px; margin-top: 6px; opacity: .75; } .mtools button { border: 0; background: rgb(var(--sh) / .1); color: var(--ink2); font: 800 11px 'Nunito', sans-serif; padding: 3px 9px; border-radius: 8px; cursor: pointer; } .mtools button:hover { background: rgb(var(--sh) / .2); }
+/* ---- Focus Guard */
+.fmeter { height: 10px; border-radius: 999px; background: var(--white); box-shadow: inset 0 2px 4px rgb(var(--sh) / .2); margin: 6px 6px 4px; overflow: hidden; } .fmeter i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #ff8a8a, #f0a020, #1fb978); transition: width .6s; }
+#fLive { text-align: center; min-height: 18px; } #fLive.bad { color: #ff6b6b; font-weight: 800; } #fReport { margin-top: 10px; }
+#fReport .tpl { text-align: left; }

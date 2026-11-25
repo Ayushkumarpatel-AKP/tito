@@ -88,10 +88,10 @@ async function offline(s, images, turns, task) {
 
 // ------------------------------------------------------------------ online
 /** One provider, politely waiting out short free-tier rate limits (and telling the UI how long). */
-async function askProvider(s, provider, key, images, turns, onWait, rawSystem) {
+async function askProvider(s, provider, key, images, turns, onWait, rawSystem, rawOpts = {}) {
   const cfg = { ...s, provider };
   for (let attempt = 0; ; attempt++) {
-    try { return await ai.ask({ settings: cfg, provider, apiKey: key, images, turns, cache: store.modelCache, rawSystem }); }
+    try { return await ai.ask({ settings: cfg, provider, apiKey: key, images, turns, cache: store.modelCache, rawSystem, ...rawOpts }); }
     catch (e) {
       if (e.code === 'rate' && e.retryAfter && e.retryAfter <= 25 && attempt < 1) {
         for (let t = Math.ceil(e.retryAfter) + 1; t > 0; t--) { if (onWait) onWait(t); await sleep(1000); }
@@ -109,7 +109,7 @@ const done = (r) => {
   return { ok: true, ...r };
 };
 
-async function ask({ images, turns, override, onWait, task = 'explain', rawSystem = '' }) {
+async function ask({ images, turns, override, onWait, task = 'explain', rawSystem = '', rawJson, maxTokens }) {
   const s = { ...store.get(), ...(override || {}), memoryNote: memory.promptNote(store) };
   const engineChoice = s.translateEngine || 'auto';
 
@@ -127,7 +127,7 @@ async function ask({ images, turns, override, onWait, task = 'explain', rawSyste
   if (s.mode !== 'offline') {
     for (const p of order) {
       try {
-        const result = await askProvider(s, p, store.getKey(p), images, turns, order.length > 1 && p === order[0] ? null : onWait, rawSystem);
+        const result = await askProvider(s, p, store.getKey(p), images, turns, order.length > 1 && p === order[0] ? null : onWait, rawSystem, { rawJson, maxTokens });
         return done({ via: 'online', provider: PROVIDERS[p].name, model: result.model, result });
       } catch (e) {
         if (!firstErr) firstErr = e;

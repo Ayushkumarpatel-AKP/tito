@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; media-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'">
 <title>Tito</title>
 <link rel="stylesheet" href="clay.css">
 <link rel="stylesheet" href="themes.css">
@@ -119,6 +119,11 @@
       </div>
 
       <div class="card clay"><h3><i class="ic ic-pink" data-i="microphone"></i>Dock, voice and search</h3>
+        <label class="lab">What should Tito call you?</label>
+        <input id="nameIn" type="text" placeholder="Your name" spellcheck="false" maxlength="30">
+        <label class="switch"><input type="checkbox" id="swGuard"><span></span>Focus Guard: nudge me when a focus round drifts to Instagram, games, Netflix...</label>
+        <input id="guardWords" type="text" placeholder="Extra distracting words, comma separated (optional)" spellcheck="false">
+        <p class="hint">Focus Guard only looks at the title of the window in front, on this PC, during a focus round. Nothing is saved except the summary, and nothing is sent anywhere. A YouTube lecture or notes do not count as distractions.</p>
         <label class="switch"><input type="checkbox" id="swDock"><span></span>Show Tito at the edge of my screen</label>
         <label class="switch"><input type="checkbox" id="swSound"><span></span>Cute sounds for reminders, quiz and the dock</label>
         <label class="switch"><input type="checkbox" id="swNotify"><span></span>Windows notification for reminders when Tito is hidden</label>
