@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https:; media-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'; frame-src http://127.0.0.1:* https://open.spotify.com">
+<title>Tito Dock</title>
+<link rel="stylesheet" href="clay.css">
+<link rel="stylesheet" href="themes.css">
+<link rel="stylesheet" href="dock.css">
+</head>
+<body>
+<div id="root" class="closed">
+  <section id="panel" class="clay" hidden>
+    <header>
+      <nav id="tabs">
+        <button class="tab on" data-tab="today" title="Today"><i class="ic ic-pink" data-i="check-square"></i><span>Today</span></button>
+        <button class="tab" data-tab="study" title="Study"><i class="ic ic-lav" data-i="brain"></i><span>Study</span></button>
+        <button class="tab" data-tab="media" title="Media"><i class="ic ic-mint" data-i="music-notes"></i><span>Media</span></button>
+        <button class="tab" data-tab="daily" title="Daily"><i class="ic ic-butter" data-i="calendar-check"></i><span>Daily</span></button>
+        <button class="tab" data-tab="chat" title="Chat"><i class="ic ic-coral" data-i="chat-circle-text"></i><span>Chat</span></button>
+      </nav>
+      <button class="x" id="btnHide" title="Close (Esc)"><i class="ic" data-i="x"></i></button>
+    </header>
+
+    <form id="cmd" autocomplete="off">
+      <input id="cmdIn" type="text" placeholder="Tell Tito: remind me at 5 pm, play lofi, search..." spellcheck="false">
+      <button type="button" class="mic" id="btnMic" title="Speak (Ctrl+Shift+V)"><i class="ic ic-white" data-i="microphone"></i></button>
+    </form>
+    <div id="quick">
+      <button class="chip on" id="qkCircle"><i class="ic ic-white" data-i="scribble-loop"></i>Circle something</button>
+      <button class="chip" id="qkQuiz"><i class="ic ic-lav" data-i="cards"></i>Quiz</button>
+      <button class="chip" id="qkFocus"><i class="ic ic-mint" data-i="timer"></i>Focus</button>
+    </div>
+    <div id="reply" hidden></div>
+
+    <!-- TODAY -->
+    <div class="pane on" id="pane-today">
+      <h4>Reminders and deadlines</h4>
+      <div id="remList" class="list"></div>
+      <button class="link" id="btnIcs">Import a calendar file (.ics)</button>
+      <form id="remForm" class="addrow"><input id="remText" type="text" placeholder="Add a reminder"><input id="remAt" type="datetime-local"><button class="btn small primary" type="submit"><i class="ic ic-white" data-i="plus"></i></button></form>
+      <h4>To do <button class="link" id="clearDone">Clear done</button></h4>
+      <div id="todoList" class="list"></div>
+      <form id="todoForm" class="addrow"><input id="todoText" type="text" placeholder="Add something to do"><button class="btn small primary" type="submit"><i class="ic ic-white" data-i="plus"></i></button></form>
+      <div id="examBox"></div>
+    </div>
+
+    <!-- STUDY -->
+    <div class="pane" id="pane-study">
+      <div id="studyHome">
+        <div class="statrow"><div class="stat"><b id="stDue">0</b><span>due now</span></div><div class="stat"><b id="stTotal">0</b><span>cards</span></div><div class="stat"><b id="stStreak">0</b><span>day streak</span></div></div>
+        <div class="lvl"><b id="stLevel"></b><div class="bar"><i id="stBar"></i></div></div>
+        <div id="planBox" class="plan"></div>
+        <div class="row2"><button class="btn primary" id="btnQuiz"><i class="ic ic-white" data-i="cards"></i>Quiz me</button><button class="btn lav" id="btnFocus"><i class="ic ic-lav" data-i="timer"></i>Focus 25 min</button></div>
+        <div class="row2"><button class="btn small" id="btnMistakes"><i class="ic ic-coral" data-i="arrow-clockwise"></i><span id="mistakeLabel">Mistakes</span></button><button class="btn small" id="btnWeek"><i class="ic ic-sky" data-i="image-square"></i>Weekly card</button></div>
+        <h4>Exam countdown</h4>
+        <form id="examForm" class="addrow"><input id="examName" type="text" placeholder="Exam name"><input id="examDate" type="date"><button class="btn small primary" type="submit"><i class="ic ic-white" data-i="plus"></i></button></form>
+        <div id="examList" class="list"></div>
+        <h4>My flashcards</h4>
+        <form id="cardForm" class="addrow"><input id="cardFront" type="text" placeholder="Question or word"><input id="cardBack" type="text" placeholder="Answer"><button class="btn small primary" type="submit"><i class="ic ic-white" data-i="plus"></i></button></form>
+        <div id="cardList" class="list"></div>
+      </div>
+      <div id="quiz" hidden>
+        <div class="qtop"><span id="qCount"></span><button class="link" id="qExit">Stop</button></div>
+        <div class="qcard clay" id="qCard"><div id="qFront"></div><div id="qBack" hidden></div></div>
+        <div class="row2" id="qShow"><button class="btn primary" id="qReveal">Show answer</button></div>
+        <div class="row2" id="qGrade" hidden><button class="btn" id="qNo"><i class="ic ic-coral" data-i="arrow-clockwise"></i>Not yet</button><button class="btn mint" id="qYes"><i class="ic ic-mint" data-i="check-circle"></i>I knew it</button></div>
+      </div>
+      <div id="focus" hidden>
+        <div class="timer" id="fTime">25:00</div><div id="fState" class="sub">Stay with it. Tito will be quiet.</div>
+        <div class="row2"><button class="btn" id="fStop">Stop</button></div>
+      </div>
+    </div>
+
+    <!-- CHAT -->
+    <div class="pane" id="pane-chat">
+      <div id="chatLog" class="chatlog"></div>
+      <div class="chips-row" id="chatHints"></div>
+    </div>
+
+    <!-- MEDIA -->
+    <div class="pane" id="pane-media">
+      <form id="ytForm" class="addrow"><input id="ytIn" type="text" placeholder="Paste a YouTube link, or a song to search"><button class="btn small primary" type="submit"><i class="ic ic-white" data-i="play"></i></button></form>
+      <div id="player" hidden>
+        <div class="eq" id="eq"><i></i><i></i><i></i><i></i><i></i></div>
+        <div id="playerFrame"></div>
+        <div id="nowTitle" class="now"></div>
+      </div>
+      <div class="ctrl">
+        <button class="btn small" data-key="prev" title="Previous"><i class="ic ic-sky" data-i="skip-back"></i></button>
+        <button class="btn small primary" data-key="play" title="Play or pause"><i class="ic ic-white" data-i="play"></i></button>
+        <button class="btn small" data-key="next" title="Next"><i class="ic ic-sky" data-i="skip-forward"></i></button>
+      </div>
+      <p class="sub">The buttons control whatever is playing in Windows (Spotify, a browser tab, any player).</p>
+      <h4>Spotify</h4>
+      <form id="spForm" class="addrow"><input id="spIn" type="text" placeholder="Song, artist or a Spotify link"><button class="btn small mint" type="submit"><i class="ic ic-mint" data-i="spotify-logo"></i></button></form>
+      <div id="spFrame"></div>
+    </div>
+
+    <!-- DAILY -->
+    <div class="pane" id="pane-daily">
+      <div class="statrow"><div class="stat"><b id="dDone">0/0</b><span>done today</span></div><div class="stat"><b id="dStreak">0</b><span>day streak</span></div><div class="stat"><b id="dWater">0</b><span>glasses</span></div></div>
+      <div id="routineList" class="list"></div>
+      <form id="routineForm" class="addrow"><input id="rName" type="text" placeholder="New routine"><input id="rTime" type="time"><button class="btn small primary" type="submit"><i class="ic ic-white" data-i="plus"></i></button></form>
+    </div>
+
+    <div id="card" hidden></div>
+  </section>
+
+  <div id="stage">
+    <div id="bubble" class="clay" hidden></div>
+    <div id="pet" class="pet"><div class="shadow"></div></div>
+  </div>
+</div>
+<script src="icons.js"></script>
+<script src="../assets/tito/manifest.js"></script>
+<script src="sprite.js"></script>
+<script src="sfx.js"></script>
+<script src="dock.js"></script>
+</body>
+</html>

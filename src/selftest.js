@@ -52,6 +52,13 @@ async function run({ summon, openSettings, showToast, closeOverlay, getOverlay, 
     }
     await shot(sw, '3_settings');
     await js(sw, "document.getElementById('packList').scrollIntoView({ block: 'center' })"); await sleep(1200); await shot(sw, '3c_packs');
+    // theme + voice cards, in the default theme and in a dark one
+    await js(sw, "document.getElementById('themeRow').scrollIntoView({ block: 'center' })"); await sleep(700); await shot(sw, '3d_themes');
+    await js(sw, "document.getElementById('toneRow').scrollIntoView({ block: 'center' })"); await sleep(700); await shot(sw, '3e_voice_ringtone');
+    await js(sw, "document.documentElement.dataset.theme = 'midnight'"); await sleep(500); await shot(sw, '3f_voice_midnight');
+    await js(sw, "document.getElementById('themeRow').scrollIntoView({ block: 'center' })"); await sleep(500); await shot(sw, '3g_themes_midnight');
+    await js(sw, "document.documentElement.dataset.theme = 'cyber'"); await sleep(400); await js(sw, "document.getElementById('tab-home') && document.querySelector('[data-tab=home]').click()"); await sleep(600); await shot(sw, '3h_home_cyber');
+    await js(sw, "document.documentElement.dataset.theme = 'mochi'; document.querySelector('[data-tab=settings]').click()");
     log.push('packs ui: ' + await js(sw, "JSON.stringify([...document.querySelectorAll('.packrow')].map(r => r.querySelector('b').textContent + ' -> ' + r.querySelector('button').textContent))"));
     await js(sw, "document.querySelector('main').scrollTo(0, 99999)"); await sleep(300); await shot(sw, '3b_settings_bottom');
 
@@ -120,6 +127,12 @@ async function run({ summon, openSettings, showToast, closeOverlay, getOverlay, 
     store.setKey('groq', ''); process.env.GEMINI_API_KEY = ''; process.env.GROQ_API_KEY = '';
     await js(ov, "window.__tito.click('.tool[data-mode=box]')"); await js(ov, para()); await sleep(600); await waitAnswer('offline ai'); await sleep(3500); await shot(ov, '16_overlay_offline_ai'); await snap('offline AI (no keys)');
     await js(ov, "window.__tito.click('#qa [data-act=summarize]')"); await sleep(400); await waitAnswer('offline ai summarize'); await sleep(3000); await snap('offline AI summarize');
+    // --- extras with a fake answer (no AI needed): picture strip, deadline chip, quiz cards
+    await js(ov, "window.__tito.click('.tool[data-mode=box]')"); await js(ov, para()); await sleep(600); await waitAnswer('extras base'); await sleep(800);
+    await js(ov, "window.__tito.fake({ title: 'Red panda', answer: 'A small tree-living mammal from the Himalayas that eats mostly bamboo.', kind: 'object', mood: 'excited', chips: [], search: 'red panda', image_query: 'red panda', due: Date.now() + 6 * 86400000, due_title: 'Library report' })");
+    await sleep(4500); await shot(ov, '17_overlay_pictures'); log.push('extras: ' + JSON.stringify(await js(ov, 'window.__tito.extras()')));
+    await js(ov, "window.__tito.fake({ title: 'Quiz', answer: 'What does the library open at? | Nine\\nWhen does it close? | Six\\nWho can help you find a book? | The librarian', kind: 'text', mood: 'happy', chips: [], search: '' }, 'quiz')");
+    await sleep(1200); await shot(ov, '18_overlay_quiz'); log.push('quiz: ' + JSON.stringify(await js(ov, 'window.__tito.extras()')));
     closeOverlay(); await sleep(400);
     log.push('overlay hidden: ' + !ov.isVisible());
   } catch (e) { log.push('SELFTEST ERROR ' + (e.stack || e)); }

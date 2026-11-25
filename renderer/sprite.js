@@ -22,9 +22,10 @@
     play(name, opts = {}) {
       const m = M[name]; if (!m) return;
       this.name = name; this.m = m; this.opts = opts; this.acc = 0;
-      this.el.style.width = m.w * this.scale + 'px'; this.el.style.height = m.h * this.scale + 'px';
+      this.fw = Math.max(1, Math.round(m.w * this.scale)); this.fh = Math.max(1, Math.round(m.h * this.scale));   // whole pixels: no sliver of the next frame
+      this.el.style.width = this.fw + 'px'; this.el.style.height = this.fh + 'px';
       this.el.style.backgroundImage = `url(${BASE}${m.file})`;
-      this.el.style.backgroundSize = `${m.w * m.count * this.scale}px ${m.h * this.scale}px`;
+      this.el.style.backgroundSize = `${this.fw * m.count}px ${this.fh}px`;
       if (m.intro.length) { this.phase = 'intro'; this.seq = m.intro; }
       else { this.phase = 'loop'; this.seq = m.loop; }
       this.i = 0; this._show(this.seq[0]);
@@ -46,7 +47,7 @@
 
     _show(idx) {
       if (idx === undefined) return;
-      this.el.style.backgroundPosition = `-${idx * this.m.w * this.scale}px 0`;
+      this.el.style.backgroundPosition = `-${idx * this.fw}px 0`;
     }
 
     _advance() {

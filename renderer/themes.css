@@ -1,0 +1,36 @@
+/* Tito themes: every colour in the app comes from these variables. The default (mochi) lives in clay.css. */
+html[data-theme="midnight"] {
+  --cream: #0f1530; --cream2: #161d3d; --peach: #222c55; --pink: #7b93ff; --pink2: #4558c8; --lav: #9a86ff; --lav2: #2b3162; --mint: #35d6a0; --sky: #4cc3ff; --butter: #ffcf5c;
+  --ink: #eaeeff; --ink2: #aab4da; --ink3: #6f7aa6; --s1: #252f58; --field: #141b38; --b2: #2d3868; --a1: #7b93ff; --a2: #4d66ff; --a3: #b682ff; --edge: #0a0f24; --white: #2d3868;
+  --sh: 0 0 0; --glow: 90 120 255; --hi: 150 170 255; --page1: #1d2757; --page3: #2a1c58; --soon: #3b3322; --late: #4b2735; --on-accent: #fff;
+}
+html[data-theme="cyber"] {
+  --cream: #07090e; --cream2: #0d1118; --peach: #141b26; --pink: #19f0a5; --pink2: #0f9d6e; --lav: #00d5ff; --lav2: #12202b; --mint: #19f0a5; --sky: #00d5ff; --butter: #e8ff3d;
+  --ink: #d9fff0; --ink2: #8fd4bd; --ink3: #4f8a78; --s1: #141b26; --field: #0a0e14; --b2: #16202c; --a1: #19f0a5; --a2: #00c2a0; --a3: #00d5ff; --edge: #04060a; --white: #1a2533;
+  --sh: 0 0 0; --glow: 25 240 165; --hi: 60 200 170; --page1: #06231c; --page3: #07202b; --soon: #2b2a12; --late: #3a1620; --on-accent: #04140e;
+}
+html[data-theme="graphite"] {
+  --cream: #17181c; --cream2: #1e2026; --peach: #292c34; --pink: #ff9a4d; --pink2: #c76a26; --lav: #9aa4ff; --lav2: #2a2d38; --mint: #52d6a0; --sky: #5fb4ff; --butter: #ffc857;
+  --ink: #eceef2; --ink2: #a6abb8; --ink3: #6b7080; --s1: #2a2d35; --field: #1a1c21; --b2: #323640; --a1: #ff9a4d; --a2: #ff7a1f; --a3: #ffc06b; --edge: #101216; --white: #343843;
+  --sh: 0 0 0; --glow: 255 150 70; --hi: 170 180 200; --page1: #2a2218; --page3: #20222b; --soon: #3a3120; --late: #4a2a2a; --on-accent: #fff;
+}
+html[data-theme="ocean"] {
+  --cream: #e9f5ff; --cream2: #d9ecfb; --peach: #c5e1f7; --pink: #5eb4ff; --pink2: #9fd3ff; --lav: #9eb6ff; --lav2: #e3eeff; --mint: #a8ecd8; --sky: #b6dcff; --butter: #ffe6a3;
+  --ink: #17335a; --ink2: #4b6a93; --ink3: #8aa3c4; --s1: #ffffff; --field: #f3faff; --b2: #d9edff; --a1: #6fc0ff; --a2: #2f8df0; --a3: #5f7bff; --edge: #bcd9ef; --white: #ffffff;
+  --sh: 30 90 160; --glow: 90 170 255; --hi: 255 255 255; --page1: #d3ecff; --page3: #d9e1ff; --soon: #fff3d0; --late: #ffe0e0; --on-accent: #fff;
+}
+html[data-theme="forest"] {
+  --cream: #eef6ea; --cream2: #dfeedb; --peach: #cfe4c8; --pink: #5fc98a; --pink2: #a8e3be; --lav: #b9c8ff; --lav2: #e6edf9; --mint: #9fe8b8; --sky: #b4dff2; --butter: #f3e49b;
+  --ink: #1f3a2a; --ink2: #4f7160; --ink3: #8aa896; --s1: #fcfff9; --field: #f5fbf1; --b2: #dcf0d8; --a1: #72d49b; --a2: #2fa866; --a3: #4ec2a5; --edge: #c3dcb9; --white: #ffffff;
+  --sh: 30 90 50; --glow: 90 200 130; --hi: 255 255 255; --page1: #d8efd0; --page3: #d3ece6; --soon: #fbf1c9; --late: #fde0dc; --on-accent: #fff;
+}
+html[data-theme="sunset"] {
+  --cream: #fff1e4; --cream2: #ffe1cc; --peach: #ffd0b0; --pink: #ff8f5a; --pink2: #ffc19c; --lav: #ffa6c9; --lav2: #ffe6ea; --mint: #ffe08a; --sky: #ffd0a6; --butter: #ffe27a;
+  --ink: #4a2418; --ink2: #8a5a48; --ink3: #c19a88; --s1: #fffaf4; --field: #fff7ef; --b2: #ffe3cf; --a1: #ff9a62; --a2: #ff5e62; --a3: #ffb347; --edge: #f0cdb4; --white: #ffffff;
+  --sh: 140 60 30; --glow: 255 140 90; --hi: 255 255 255; --page1: #ffd8bb; --page3: #ffd0d6; --soon: #ffecc4; --late: #ffd9d3; --on-accent: #fff;
+}
+html[data-theme="lavender"] {
+  --cream: #f3edff; --cream2: #e6dcff; --peach: #d9ccff; --pink: #9d82ff; --pink2: #c9baff; --lav: #b99dff; --lav2: #ece5ff; --mint: #b8f0e0; --sky: #c3dcff; --butter: #fbe8a7;
+  --ink: #33215c; --ink2: #6f5ca0; --ink3: #a898cf; --s1: #fdfbff; --field: #f8f4ff; --b2: #e8defe; --a1: #ab93ff; --a2: #7a5af0; --a3: #c36bff; --edge: #d6c9f5; --white: #ffffff;
+  --sh: 90 60 170; --glow: 160 130 255; --hi: 255 255 255; --page1: #e6dcff; --page3: #f3d9ff; --soon: #fbefd0; --late: #ffe1ec; --on-accent: #fff;
+}

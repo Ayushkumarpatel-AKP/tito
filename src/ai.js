@@ -11,6 +11,12 @@ class AiError extends Error {
   constructor(code, message, retryAfter) { super(message); this.code = code; this.retryAfter = retryAfter; }
 }
 
+// A deadline the model found on screen: kept only if it is a real date in the future (within two years).
+function dueOf(due, title) {
+  const t = Date.parse(String(due || '')); const now = Date.now();
+  return Number.isFinite(t) && t > now && t < now + 2 * 365 * 86400000 ? { due: t, due_title: String(title || '').slice(0, 60) } : {};
+}
+
 function parseReply(raw) {
   const fallback = { title: 'Tito says', answer: String(raw || '').trim().slice(0, 700), kind: 'other', mood: 'happy', chips: [], search: '' };
   if (!raw) return fallback;
@@ -20,11 +26,13 @@ function parseReply(raw) {
     const j = JSON.parse(m[0]);
     return {
       title: String(j.title || 'Tito says').slice(0, 60),
-      answer: String(j.answer || '').trim().slice(0, 900) || fallback.answer,
+      answer: (typeof j.answer === 'object' && j.answer ? JSON.stringify(j.answer) : String(j.answer || '')).trim().slice(0, 900) || fallback.answer,
       kind: String(j.kind || 'other'),
       mood: ['happy', 'excited', 'thinking', 'confused'].includes(j.mood) ? j.mood : 'happy',
       chips: Array.isArray(j.chips) ? j.chips.slice(0, 2).map((c) => String(c).slice(0, 40)) : [],
       search: String(j.search || '').slice(0, 120),
+      image_query: String(j.image_query || '').trim().slice(0, 60),
+      ...dueOf(j.due, j.due_title),
     };
   } catch { return fallback; }
 }
@@ -54,7 +62,7 @@ async function post(url, headers, body, timeout = TIMEOUT_MS) {
 }
 
 // ------------------------------------------------------------------ one model, one request
-async function callOpenAI({ base, id, apiKey, model, system, images, turns }) {
+async function callOpenAI({ base, id, apiKey, model, system, images, turns, raw }) {
   const messages = [{ role: 'system', content: system }, ...turns.map((t, i) => ({
     role: t.role,
     content: i === 0 && t.role === 'user'
@@ -68,10 +76,11 @@ async function callOpenAI({ base, id, apiKey, model, system, images, turns }) {
   const j = await post(base + '/chat/completions', { authorization: 'Bearer ' + apiKey, 'x-title': 'Tito' }, body);
   const text = j?.choices?.[0]?.message?.content;
   if (!text) throw new AiError('empty', 'The model sent back nothing.');
-  return parseReply(Array.isArray(text) ? text.map((p) => p.text || '').join('') : text);
+  const t = Array.isArray(text) ? text.map((p) => p.text || '').join('') : text;
+  return raw ? { answer: String(t).trim(), raw: true } : parseReply(t);
 }
 
-async function callGemini({ apiKey, model, system, images, turns }) {
+async function callGemini({ apiKey, model, system, images, turns, raw }) {
   const contents = turns.map((t, i) => ({
     role: t.role === 'assistant' ? 'model' : 'user',
     parts: [
@@ -87,7 +96,7 @@ async function callGemini({ apiKey, model, system, images, turns }) {
   );
   const text = j?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
   if (!text) throw new AiError('empty', 'The model sent back nothing.');
-  return parseReply(text);
+  return raw ? { answer: text.trim(), raw: true } : parseReply(text);
 }
 
 // A different model may well work when this one failed (retired, overloaded, no image support...). Rate limits and bad keys will not.
@@ -97,14 +106,15 @@ const skippable = (e) => e.code === 'empty' || e.code === 'timeout' || (e.code =
  * images: [{mime, data(base64)}] attached to the first user turn. turns: [{role:'user'|'assistant', text}]
  * Tries the pinned model, then the auto-discovered best models; if every one fails it re-discovers once (models get retired).
  */
-async function ask({ settings, provider, apiKey, images, turns, cache }) {
+async function ask({ settings, provider, apiKey, images, turns, cache, rawSystem }) {
   const P = PROVIDERS[provider];
   if (!P) throw new AiError('config', 'Unknown provider: ' + provider);
   if (!apiKey) throw new AiError('nokey', 'No API key set.');
   const custom = settings.custom || {};
   const base = models.baseOf(provider, custom);
   if (P.kind === 'openai' && !base) throw new AiError('config', 'Set the base URL for this provider in Settings.');
-  const system = buildSystem(settings);
+  const system = rawSystem || buildSystem(settings);        // rawSystem: a different job (command parsing) with its own reply format
+  const raw = !!rawSystem;
   const pinned = P.custom ? custom.model : (settings.models || {})[provider];
 
   const tried = new Set(); let lastErr = null;
@@ -112,7 +122,7 @@ async function ask({ settings, provider, apiKey, images, turns, cache }) {
     for (const model of list) {
       if (tried.has(model)) continue; tried.add(model);
       try {
-        const r = P.kind === 'gemini' ? await callGemini({ apiKey, model, system, images, turns }) : await callOpenAI({ base, id: provider, apiKey, model, system, images, turns });
+        const r = P.kind === 'gemini' ? await callGemini({ apiKey, model, system, images, turns, raw }) : await callOpenAI({ base, id: provider, apiKey, model, system, images, turns, raw });
         return { ...r, model };
       } catch (e) { lastErr = e; if (!skippable(e)) throw e; }
     }

@@ -88,10 +88,10 @@ async function offline(s, images, turns, task) {
 
 // ------------------------------------------------------------------ online
 /** One provider, politely waiting out short free-tier rate limits (and telling the UI how long). */
-async function askProvider(s, provider, key, images, turns, onWait) {
+async function askProvider(s, provider, key, images, turns, onWait, rawSystem) {
   const cfg = { ...s, provider };
   for (let attempt = 0; ; attempt++) {
-    try { return await ai.ask({ settings: cfg, provider, apiKey: key, images, turns, cache: store.modelCache }); }
+    try { return await ai.ask({ settings: cfg, provider, apiKey: key, images, turns, cache: store.modelCache, rawSystem }); }
     catch (e) {
       if (e.code === 'rate' && e.retryAfter && e.retryAfter <= 25 && attempt < 1) {
         for (let t = Math.ceil(e.retryAfter) + 1; t > 0; t--) { if (onWait) onWait(t); await sleep(1000); }
@@ -103,12 +103,13 @@ async function askProvider(s, provider, key, images, turns, onWait) {
 }
 
 const done = (r) => {
+  if (r.result && r.result.raw) return { ok: true, ...r };          // command parsing: no xp, no memory, no notebook
   store.save({ xp: (store.get().xp || 0) + 1 });
   if (r.result && !r.result.demo && !r.result.offlineOcr) memory.remember(store, r.result.title, r.result.kind);
   return { ok: true, ...r };
 };
 
-async function ask({ images, turns, override, onWait, task = 'explain' }) {
+async function ask({ images, turns, override, onWait, task = 'explain', rawSystem = '' }) {
   const s = { ...store.get(), ...(override || {}), memoryNote: memory.promptNote(store) };
   const engineChoice = s.translateEngine || 'auto';
 
@@ -126,7 +127,7 @@ async function ask({ images, turns, override, onWait, task = 'explain' }) {
   if (s.mode !== 'offline') {
     for (const p of order) {
       try {
-        const result = await askProvider(s, p, store.getKey(p), images, turns, order.length > 1 && p === order[0] ? null : onWait);
+        const result = await askProvider(s, p, store.getKey(p), images, turns, order.length > 1 && p === order[0] ? null : onWait, rawSystem);
         return done({ via: 'online', provider: PROVIDERS[p].name, model: result.model, result });
       } catch (e) {
         if (!firstErr) firstErr = e;
@@ -136,6 +137,7 @@ async function ask({ images, turns, override, onWait, task = 'explain' }) {
   }
 
   // the AI could not answer: translation has free fallbacks, everything else can still be read offline
+  if (rawSystem) return { ok: false, code: firstErr ? firstErr.code || 'unknown' : 'nokey', message: firstErr ? firstErr.message : 'No AI key is set.' };
   if (task === 'translate' && turns.length === 1 && engineChoice !== 'ai') {
     try { return done(await translateSelection(s, images, sawNetwork ? ['offline', 'mymemory'] : ['mymemory', 'offline'])); } catch (e) { if (!firstErr) firstErr = e; }
   }

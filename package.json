@@ -1,6 +1,6 @@
 {
   "name": "tito",
-  "version": "1.0.0",
+  "version": "1.2.2",
   "description": "Tito - a cute desktop companion. Press a hotkey, circle anything on your screen, Tito explains it.",
   "main": "main.js",
   "author": "Ayush",
@@ -59,7 +59,12 @@
     ],
     "artifactName": "Tito-Setup.exe",
     "compression": "normal",
-    "publish": null,
+    "publish": {
+      "provider": "github",
+      "owner": "Ayushkumarpatel-AKP",
+      "repo": "tito",
+      "releaseType": "release"
+    },
     "directories": {
       "output": "dist"
     }
@@ -71,6 +76,7 @@
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.2",
+    "electron-updater": "^6.8.11",
     "node-llama-cpp": "^3.22.3"
   }
 }

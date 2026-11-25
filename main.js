@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 
 const SELFTEST = process.argv.includes('--selftest');
+app.setAppUserModelId('com.ayush.tito');   // Windows shows this app as "Tito" (not "electron.app.Electron") in notifications
 if (SELFTEST && process.env.TITO_SHOTS) app.setPath('userData', path.join(process.env.TITO_SHOTS, 'userdata'));
 
 const store = require('./src/store');
@@ -12,6 +13,7 @@ const models = require('./src/models');
 const packs = require('./src/packs');
 const memory = require('./src/memory');
 const pdf = require('./src/pdf');
+const dock = require('./src/dock');
 const { LANGS } = require('./src/translate');
 const { PROVIDERS, detectKey, publicList } = require('./src/providers');
 
@@ -34,7 +36,10 @@ if (setKeyArg) {
 } else {
 // ------------------------------------------------------------------ single instance
 if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
-app.on('second-instance', () => summon());        // launching Tito again == pressing the hotkey
+app.on('second-instance', (_e, argv) => {   // opening Tito again (desktop or Start menu icon) shows the app; the hidden login start stays quiet
+  if (argv.includes('--hidden')) return;
+  openSettings('home');
+});
 
 // ------------------------------------------------------------------ windows
 const baseWeb = () => ({ preload: PRELOAD, contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: false });
@@ -58,6 +63,7 @@ async function summon() {
   if (overlayOpening) return;
   if (overlayWin && !overlayWin.isDestroyed() && overlayWin.isVisible()) { closeOverlay(); return; }
   overlayOpening = true;
+  dock.onSummon();                      // the dock steps aside while you circle something, so two Titos never overlap
   try {
     hideToast();
     const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
@@ -88,6 +94,22 @@ function closeOverlay() {
   if (!overlayWin || overlayWin.isDestroyed()) return;
   overlayWin.hide();
   overlayWin.webContents.send('overlay:closed');
+  dock.onOverlayClosed();
+}
+
+// ------------------------------------------------------------------ updates (installed builds only; picks up the newest GitHub release)
+let updateState = 'idle';
+function setupUpdates() {
+  if (!app.isPackaged || SELFTEST) return;
+  let autoUpdater; try { ({ autoUpdater } = require('electron-updater')); } catch { return; }
+  autoUpdater.autoDownload = true; autoUpdater.autoInstallOnAppQuit = true; autoUpdater.logger = null;
+  autoUpdater.on('update-available', () => { updateState = 'downloading'; });
+  autoUpdater.on('update-not-available', () => { updateState = 'idle'; });
+  autoUpdater.on('error', () => { updateState = 'idle'; });
+  autoUpdater.on('update-downloaded', (i) => { updateState = 'ready'; showToast({ state: 'greeting', text: `Tito ${i.version} is ready. It installs the next time you quit Tito.` }); refreshTray(); });
+  const check = () => { try { autoUpdater.checkForUpdates().catch(() => {}); } catch { /* offline */ } };
+  check(); setInterval(check, 6 * 3600 * 1000);
+  ipcMain.on('app:installUpdate', () => { quitting = true; autoUpdater.quitAndInstall(); });
 }
 
 function openSettings(tab = 'home') {
@@ -122,9 +144,10 @@ function showToast({ state = 'greeting', text }) {
 function hideToast() { if (toastWin && !toastWin.isDestroyed()) toastWin.close(); toastWin = null; }
 
 // ------------------------------------------------------------------ hotkey / login / tray
-function registerHotkey(accel) {
-  globalShortcut.unregisterAll();
-  try { return globalShortcut.register(accel, summon); } catch { return false; }
+let hotkeyNow = '';
+function registerHotkey(accel) {       // only swaps this one shortcut: the dock's shortcuts stay registered
+  if (hotkeyNow) globalShortcut.unregister(hotkeyNow);
+  try { const ok = globalShortcut.register(accel, summon); hotkeyNow = ok ? accel : ''; return ok; } catch { hotkeyNow = ''; return false; }
 }
 
 function applyLogin(on) {
@@ -144,10 +167,13 @@ function buildTray() {
     tray.setContextMenu(Menu.buildFromTemplate([
       { label: `Circle something  (${prettyKey(s.hotkey)})`, click: () => summon() },
       { type: 'separator' },
+      { label: 'Tito Dock  (Ctrl + Shift + D)', click: () => dock.toggleDock() },
+      { label: 'Quiz me  (Ctrl + Shift + K)', click: () => dock.openPanel('study') },
       { label: 'Open Tito', click: () => openSettings('home') },
       { label: 'Notebook', click: () => openSettings('notebook') },
       { label: 'Settings', click: () => openSettings('settings') },
       { type: 'separator' },
+      ...(updateState === 'ready' ? [{ label: 'Restart to update Tito', click: () => ipcMain.emit('app:installUpdate') }, { type: 'separator' }] : []),
       { label: 'Start with Windows', type: 'checkbox', checked: s.openAtLogin, click: (i) => { store.save({ openAtLogin: i.checked }); applyLogin(i.checked); } },
       { label: 'Quit Tito', click: () => { quitting = true; app.quit(); } },
     ]));
@@ -165,10 +191,12 @@ const handle = (ch, fn) => ipcMain.handle(ch, async (_e, ...a) => { try { return
 handle('settings:get', () => store.publicSettings());
 handle('settings:save', (patch) => {
   const before = store.get();
+  if (patch.shortcuts) { const failed = dock.tryShortcuts(patch.shortcuts); if (failed.length) return { ok: false, message: 'That shortcut is already used by another app. Try a different one.' }; }
   if (patch.hotkey && patch.hotkey !== before.hotkey) {
     if (!registerHotkey(patch.hotkey)) { registerHotkey(before.hotkey); return { ok: false, message: 'That shortcut is already used by another app. Try a different one.' }; }
   }
   store.save(patch);
+  if ('dockOn' in patch || 'clipWatch' in patch) dock.applySettings();
   if ('openAtLogin' in patch) applyLogin(patch.openAtLogin);
   refreshTray();
   for (const w of BrowserWindow.getAllWindows()) w.webContents.send('settings:changed', store.publicSettings());
@@ -223,6 +251,7 @@ handle('pdf:notebook', async () => {
   return r;
 });
 
+
 handle('history:list', () => store.listHistory());
 handle('history:add', (entry) => store.addHistory(entry));
 handle('history:remove', (id) => { store.removeHistory(id); return true; });
@@ -237,7 +266,7 @@ handle('history:export', async () => {
 });
 
 handle('ocr:run', async (b64) => ({ ok: true, text: await require('./src/ocr').recognize(b64) }));
-handle('clip:text', (t) => { clipboard.writeText(String(t)); return true; });
+handle('clip:text', (t) => { dock.ignoreClip(t); clipboard.writeText(String(t)); return true; });
 handle('clip:image', (dataUrl) => { clipboard.writeImage(nativeImage.createFromDataURL(dataUrl)); return true; });
 handle('share:save', (dataUrl) => {
   const dir = path.join(app.getPath('pictures'), 'Tito'); fs.mkdirSync(dir, { recursive: true });
@@ -250,6 +279,7 @@ handle('open:folder', (p) => { shell.showItemInFolder(p); return true; });
 handle('win:open', (tab) => { openSettings(tab); return true; });
 handle('app:info', () => ({ version: app.getVersion(), hotkeyPretty: prettyKey(store.get().hotkey), packaged: app.isPackaged }));
 
+dock.registerCards();
 ipcMain.on('overlay:ready', () => {
   if (!overlayWin || overlayWin.isDestroyed()) return;
   overlayWin.setAlwaysOnTop(true, 'screen-saver');
@@ -274,7 +304,9 @@ app.whenReady().then(async () => {
   else if (s.greetOnStart && !SELFTEST) showToast({ state: 'greeting', text: `Tito is awake. Press ${prettyKey(s.hotkey)} and circle anything on your screen.` });
 
   if (!LAUNCHED_AT_LOGIN && !SELFTEST) openSettings('home');
+  setupUpdates();
   ensureOverlay();                       // pre-load so the hotkey feels instant
+  if (!SELFTEST || process.env.TITO_DOCK_TEST) dock.init({ summon, openSettings });   // the self-test never opens the dock on the real desktop
   if (SELFTEST) require('./src/selftest').run({ summon, openSettings, showToast, closeOverlay, getOverlay: () => overlayWin, getSettings: () => settingsWin, getToast: () => toastWin });
 });
 

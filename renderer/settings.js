@@ -104,6 +104,7 @@
     group($('levelRow'), LEVELS, S.level, (v) => save({ level: v }), chipBtn);
     renderProviders(); $('hkIn').value = info.hotkeyPretty;
     renderTranslate(); renderMemory();
+    renderDockCard(); renderThemes(); renderVoice();
     $('swLogin').checked = S.openAtLogin; $('swGreet').checked = S.greetOnStart; $('swCtx').checked = !!S.sendContext;
   }
 
@@ -226,6 +227,71 @@
   $('swLogin').onchange = (e) => save({ openAtLogin: e.target.checked });
   $('swGreet').onchange = (e) => save({ greetOnStart: e.target.checked });
   $('swCtx').onchange = (e) => save({ sendContext: e.target.checked });
+
+  // ---- voice + ringtone
+  let TI = null;
+  const KEYNAME = { openai: 'tts_openai', elevenlabs: 'tts_eleven', custom: 'tts_custom' };
+  async function renderVoice() {
+    TI = TI || await window.tito.ttsInfo(); const prov = S.ttsProvider || 'auto';
+    const sel = $('ttsProv'); sel.textContent = ''; for (const [id, name] of TI.providers) sel.append(new Option(name, id)); sel.value = prov;
+    const vsel = $('ttsVoice'); vsel.textContent = ''; const eff = prov === 'auto' ? (S.hasKey.gemini ? 'gemini' : 'gemini') : prov;
+    const voices = eff === 'gemini' ? TI.gemini : eff === 'openai' ? TI.openai : null;
+    $('ttsVoiceRow').hidden = prov === 'system';
+    if (voices) { for (const v of voices) vsel.append(new Option(v, v)); vsel.value = (S.ttsVoices && S.ttsVoices[eff]) || TI.defaults[eff]; vsel.disabled = false; }
+    else { vsel.append(new Option(eff === 'elevenlabs' ? 'Default voice (Sarah)' : 'Default voice', '')); vsel.disabled = true; }
+    $('ttsKeyRow').hidden = !KEYNAME[prov]; $('ttsCustomRow').hidden = prov !== 'custom';
+    if (KEYNAME[prov]) $('ttsKey').placeholder = S.hasKey[KEYNAME[prov]] ? 'Key saved. Paste a new one to replace it' : 'Paste your key for this voice service';
+    if (prov === 'custom') { $('ttsBase').value = (S.ttsCustom && S.ttsCustom.base) || ''; $('ttsModel').value = (S.ttsCustom && S.ttsCustom.model) || ''; }
+    $('voiceMode').value = S.voiceMode || 'alerts'; $('swRingLoop').checked = S.ringLoop !== false;
+    const box = $('toneRow'); box.textContent = '';
+    for (const [id, name] of window.TitoSfx.RINGTONES) {
+      const b = document.createElement('button'); b.className = 'chip' + ((S.ringtone || 'marimba') === id ? ' on' : ''); b.textContent = name;
+      b.onclick = async () => { await save({ ringtone: id }, true); window.TitoSfx.ring(id, { once: true, maxMs: 3000, vol: 0.6 }); renderVoice(); }; box.append(b);
+    }
+  }
+  $('ttsProv').onchange = async () => { await save({ ttsProvider: $('ttsProv').value }, true); renderVoice(); };
+  $('ttsVoice').onchange = async () => { const p = ($('ttsProv').value === 'auto') ? 'gemini' : $('ttsProv').value; await save({ ttsVoices: { [p]: $('ttsVoice').value } }, true); };
+  $('ttsKeySave').onclick = async () => { const p = $('ttsProv').value, k = $('ttsKey').value.trim(); if (!k) return; const r = await window.tito.setKey(KEYNAME[p], k); S = r.settings; $('ttsKey').value = ''; msg('ttsMsg', 'Key saved. Press Test voice.', true); renderVoice(); };
+  $('ttsBase').onchange = () => save({ ttsCustom: { base: $('ttsBase').value.trim() } }, true); $('ttsModel').onchange = () => save({ ttsCustom: { model: $('ttsModel').value.trim() } }, true);
+  $('voiceMode').onchange = () => save({ voiceMode: $('voiceMode').value }, true); $('swRingLoop').onchange = (e) => save({ ringLoop: e.target.checked }, true);
+  $('ttsTest').onclick = async () => {
+    msg('ttsMsg', 'Asking the voice service...', true); const r = await window.TitoVoice.say('Hi, I am Tito. This is how I sound.');
+    if (r && r.ok) msg('ttsMsg', 'That was the voice.', true); else msg('ttsMsg', (r && r.message) || 'The voice did not work. Check the key.', false);
+  };
+
+  // ---- theme picker
+  const THEMES = [['mochi', 'Mochi', ['#fff3ea', '#ffb4d0', '#a58bff']], ['midnight', 'Midnight', ['#0f1530', '#4d66ff', '#b682ff']], ['cyber', 'Cyber', ['#07090e', '#19f0a5', '#00d5ff']], ['graphite', 'Graphite', ['#17181c', '#ff7a1f', '#ffc06b']],
+    ['ocean', 'Ocean', ['#e9f5ff', '#2f8df0', '#5f7bff']], ['forest', 'Forest', ['#eef6ea', '#2fa866', '#4ec2a5']], ['sunset', 'Sunset', ['#fff1e4', '#ff5e62', '#ffb347']], ['lavender', 'Lavender', ['#f3edff', '#7a5af0', '#c36bff']]];
+  function renderThemes() {
+    const box = $('themeRow'); box.textContent = '';
+    for (const [id, name, cols] of THEMES) {
+      const b = document.createElement('button'); b.className = 'theme' + ((S.theme || 'mochi') === id ? ' on' : '');
+      const sw = document.createElement('div'); sw.className = 'sw'; for (const c of cols) { const i = document.createElement('i'); i.style.background = c; sw.append(i); }
+      b.append(sw, name); b.onclick = async () => { await save({ theme: id }, true); renderThemes(); }; box.append(b);
+    }
+  }
+  // ---- dock, voice, search
+  const SC_DEFAULT = { voice: 'CommandOrControl+Shift+V', todo: 'CommandOrControl+Shift+T', dock: 'CommandOrControl+Shift+D', quiz: 'CommandOrControl+Shift+K' };
+  const pretty = (a) => a.replace('CommandOrControl', 'Ctrl').replace(/\+/g, ' + ');
+  const SC_LABEL = { voice: 'Voice', todo: 'Quick to-do', dock: 'Dock', quiz: 'Quiz' };
+  function renderDockCard() {
+    $('swDock').checked = S.dockOn !== false; $('swNotify').checked = S.notify !== false; $('swSound').checked = S.sounds !== false; $('swClip').checked = !!S.clipWatch;
+    $('searxIn').value = S.searxUrl || ''; $('ytKey').value = ''; $('ytKey').placeholder = S.hasKey && S.hasKey.youtube ? 'Key saved. Paste a new one to replace it' : 'Paste a YouTube Data API key';
+    for (const n of document.querySelectorAll('[data-sc]')) n.value = SC_LABEL[n.dataset.sc] + ':  ' + pretty((S.shortcuts && S.shortcuts[n.dataset.sc]) || SC_DEFAULT[n.dataset.sc]);
+  }
+  $('swDock').onchange = (e) => save({ dockOn: e.target.checked }); $('swSound').onchange = (e) => save({ sounds: e.target.checked }); $('swNotify').onchange = (e) => save({ notify: e.target.checked }); $('swClip').onchange = (e) => save({ clipWatch: e.target.checked });
+  $('searxIn').onchange = () => { const v = $('searxIn').value.trim(); if (v && !/^https?:\/\//i.test(v)) return msg('scMsg', 'Start the address with https://', false); save({ searxUrl: v.replace(/\/+$/, '') }); };
+  $('getYt').onclick = () => window.tito.openExternal('https://console.cloud.google.com/apis/library/youtube.googleapis.com');
+  $('ytSave').onclick = async () => { const k = $('ytKey').value.trim(); if (!k) return msg('ytMsg', 'Paste the key first', false); const r = await window.tito.setKey('youtube', k); S = r.settings; msg('ytMsg', 'Saved', true); renderDockCard(); };
+  for (const inp of document.querySelectorAll('[data-sc]')) inp.addEventListener('keydown', async (e) => {
+    e.preventDefault(); if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
+    const mods = []; if (e.ctrlKey) mods.push('CommandOrControl'); if (e.altKey) mods.push('Alt'); if (e.shiftKey) mods.push('Shift');
+    if (!mods.length) return msg('scMsg', 'Hold Ctrl, Alt or Shift while pressing a key', false);
+    const k = KEYMAP[e.key] || (e.key.length === 1 ? e.key.toUpperCase() : e.key);
+    const r = await save({ shortcuts: { [inp.dataset.sc]: [...mods, k].join('+') } }, true);
+    if (r && r.ok === false) return msg('scMsg', r.message, false);
+    msg('scMsg', 'Saved', true); renderDockCard(); inp.blur();
+  });
 
   renderSettings(); renderHome(); window.Icons.hydrate();
 })();

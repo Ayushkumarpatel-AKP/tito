@@ -7,7 +7,7 @@ A small desktop buddy. Press **Ctrl + Shift + Space**, draw around (or drag a bo
 npm install
 npm start            # runs in the tray and registers itself to start with Windows
 npm run selftest     # drives every window and saves screenshots (see Testing)
-npm run dist         # builds a Windows installer into dist/
+npm run dist         # builds a Windows installer into dist/ (upload Tito-Setup.exe, its .blockmap and latest.yml to a GitHub release and installed copies update themselves)
 ```
 
 ## AI providers (bring any key)
@@ -39,6 +39,23 @@ Select text and press **Translate**. English text goes into your language (Setti
   - **Hindi translation**: OPUS-MT English to Hindi and Hindi to English (int8, about 220 MB) run by `transformers.js`.
 - With no internet Tito uses these automatically (Auto mode).
 
+## Tito Dock (the pet at the edge of your screen)
+Click Tito to open the panel, drag him to either screen edge. Say or type commands in the box at the top (English, Hindi or Hinglish):
+`remind me to call mom at 5 pm`, `kal 5 baje reminder`, `add todo buy milk`, `play lofi on youtube`, `search black hole`, `maine lunch kha liya`, `pause`, `agla gaana`.
+- **Today**: reminders and deadlines (countdown, bubble and Windows notification), to-do list, import a calendar (.ics).
+- **Study**: flashcards (Leitner revision), quiz, mistakes, exam countdown and plan, 25 minute focus timer, weekly card you can share.
+- **Media**: YouTube player inside Tito (paste a link, or add a free YouTube key to play by name), Spotify links, and play / pause / next for anything playing in Windows.
+- **Daily**: meals, water, medicine, brushing, exercise and bed time reminders with streaks. Add your own.
+- Shortcuts (change them in Settings): Ctrl+Shift+V voice, T quick to-do, D show or hide the dock, K quiz.
+- Voice uses your free Groq key (Whisper). Web lookups use Wikipedia, DuckDuckGo Instant Answers and, if you set one, your own SearXNG address. DuckDuckGo's results page is bot-protected, so Tito does not scrape it.
+- In an answer card: **Teach** (Tito asks, you work it out), **Quiz me on this**, pictures (only when a photo helps, from Wikimedia Commons), **Remind me** when a date is on screen, and one extra button that fits what you circled.
+
+## Themes, ringtones and Tito's voice
+- **Themes** (Settings > Theme): Mochi, Midnight, Cyber, Graphite, Ocean, Forest, Sunset, Lavender. They restyle the dock, the answer card and the app. Say "cyber theme" to Tito too.
+- **Ringtones**: eight original melodies made in the app (Marimba, Sparkle, Soft bells, Sunrise, Retro beeps, plus Kenney CC0 samples). A ringing reminder shakes Tito and sends out sound rings and floating notes.
+- **Natural voice**: free with your Gemini key (Gemini speech models, found from the live model list). Or add a key for OpenAI, ElevenLabs, or any OpenAI-compatible `/audio/speech` address. Without a key Tito can use the Windows voice. `node tools/test-tts.js` checks the request shapes against a pretend server.
+- Reminders that mention a website or video (for example "open mr beast latest video at 12:04 am") open it by themselves at that time. Installed apps (WhatsApp, VS Code, Spotify...) wait for a button instead.
+
 ## Using it
 - **Draw**: loop around anything. **Box**: drag a rectangle, then resize with the handles. **Whole screen**: ask about everything.
 - **Explain / Translate / Summarize / Solve / Fix**, a style switch (Simple, Student, Expert, Fun) and follow-up questions.
@@ -47,7 +64,7 @@ Select text and press **Translate**. English text goes into your language (Setti
 
 ## Testing
 The self-test never captures the real desktop: set `TITO_TEST_IMAGE` to a picture (see `tools/make-test-backdrop.py`), `TITO_SHOTS` to an output folder and your keys in the environment, then `npm run selftest`.
-Other checks: `node tools/try-models.js`, `node tools/test-translate.js`, `node tools/test-llm.js`, `node tools/test-offline-tr.js`, `electron tools/test-pdf.js out.pdf`. `node tools/get-pack.js llm|hi` downloads a pack from the command line.
+Other checks: `node tools/test-intent.js`, `node tools/test-tasks.js`, `npx electron tools/test-dock.js <out dir>` (drives the dock in a window that is never shown), `node tools/try-models.js`, `node tools/test-translate.js`, `node tools/test-llm.js`, `node tools/test-offline-tr.js`, `electron tools/test-pdf.js out.pdf`. `node tools/get-pack.js llm|hi` downloads a pack from the command line.
 
 ## Layout
 - `main.js`, `preload.js`, `src/`: tray, hotkey, screen capture, providers (`providers.js`), model discovery (`models.js`), requests (`ai.js`), routing and fallbacks (`engine.js`), translation (`translate.js`, `offline-tr.js`), built-in AI (`llm.js`), packs (`packs.js`), OCR, PDF (`pdf.js`), memory, storage

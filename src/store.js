@@ -24,6 +24,25 @@ const DEFAULTS = {
   textSize: 1,                   // answer text size: 0 small, 1 medium, 2 large, 3 extra large
   sendContext: false,            // also send a whole-screen image (more accurate, uses more of a free limit)
   xp: 0,
+  dockOn: true,                   // show the pet at the edge of the screen
+  notify: true,                  // Windows notifications for reminders
+  sounds: true,                  // cute sound effects for alerts, quiz and the dock
+  autoOpenSites: true,           // a reminder about a website or video opens it at the time (apps only get a button)
+  theme: 'mochi',
+  ringtone: 'marimba',           // reminder ringtone (renderer/sfx.js)
+  ringLoop: true,                // keep ringing until dismissed (max 20 s)
+  voiceMode: 'alerts',           // alerts | all | off: when Tito speaks out loud
+  ttsProvider: 'auto',           // auto | gemini | openai | elevenlabs | custom | system
+  ttsVoices: {},                 // provider -> voice
+  ttsCustom: { base: '', model: '' },
+  clipWatch: false,              // offer to explain copied errors / foreign text (off by default)
+  searxUrl: '',                  // optional SearXNG instance for full web search
+  shortcuts: {},                 // voice | todo | dock | quiz -> accelerator
+  dock: null,                    // { side, y } where the pet was left
+  lastBrief: '',
+  reviewLog: {},                 // day -> flashcards reviewed that day
+  streak: 0,
+  lastStudy: '',
 };
 
 const file = (n) => path.join(app.getPath('userData'), n);
@@ -46,7 +65,7 @@ function save(patch) {
   const s = get();
   for (const k of Object.keys(patch)) {
     if (k === 'keys') continue;                 // keys only go through setKey
-    if (k === 'models') s.models = { ...s.models, ...patch.models }; else if (k === 'custom') s.custom = { ...s.custom, ...patch.custom }; else if (k === 'memory') s.memory = { ...s.memory, ...patch.memory }; else s[k] = patch[k];
+    if (k === 'models') s.models = { ...s.models, ...patch.models }; else if (k === 'custom') s.custom = { ...s.custom, ...patch.custom }; else if (k === 'memory') s.memory = { ...s.memory, ...patch.memory }; else if (k === 'shortcuts') s.shortcuts = { ...s.shortcuts, ...patch.shortcuts }; else if (k === 'ttsVoices') s.ttsVoices = { ...s.ttsVoices, ...patch.ttsVoices }; else if (k === 'ttsCustom') s.ttsCustom = { ...s.ttsCustom, ...patch.ttsCustom }; else s[k] = patch[k];
   }
   writeJson('settings.json', s);
   return s;
@@ -76,7 +95,7 @@ function publicSettings() {
   const s = get();
   const { keys, ...rest } = s;
   const { modelCache, ...pub } = rest;
-  return { ...pub, memory: { enabled: s.memory.enabled, count: s.memory.topics.length }, hasKey: Object.fromEntries(Object.keys(PROVIDERS).map((p) => [p, !!getKey(p)])) };
+  return { ...pub, memory: { enabled: s.memory.enabled, count: s.memory.topics.length }, hasKey: { ...Object.fromEntries(Object.keys(PROVIDERS).map((p) => [p, !!getKey(p)])), youtube: !!getKey('youtube'), tts_openai: !!getKey('tts_openai'), tts_eleven: !!getKey('tts_eleven'), tts_custom: !!getKey('tts_custom') } };
 }
 
 // ---- model discovery cache (see models.js) -------------------------------
@@ -99,4 +118,40 @@ const listHistory = () => hist();
 function removeHistory(id) { history = hist().filter((x) => x.id !== id); writeJson('history.json', history); }
 function clearHistory() { history = []; writeJson('history.json', history); }
 
-module.exports = { modelCache, load, get, save, setKey, getKey, publicSettings, addHistory, listHistory, removeHistory, clearHistory, DEFAULTS };
+// ---- flashcards (Leitner boxes: a right answer moves a card up and schedules it further out) -----------
+const DAY = 86400000, BOX_DAYS = [0, 1, 3, 7, 14, 30];
+let cards = null;
+const deck = () => cards || (cards = readJson('cards.json', []));
+function addCard(front, back) {
+  front = String(front || '').trim().slice(0, 120); back = String(back || '').trim().slice(0, 600);
+  if (!front || !back) return null;
+  const d = deck(); const dup = d.find((c) => c.front.toLowerCase() === front.toLowerCase());
+  if (dup) return dup;
+  const c = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5), front, back, box: 0, due: Date.now(), made: Date.now() };
+  d.unshift(c); writeJson('cards.json', d); return c;
+}
+const isMistake = (c) => (c.missed || 0) > 0 && c.box < 2;
+const dueCards = (n = 5, mistakes = false) => deck().filter((c) => (mistakes ? isMistake(c) : c.due <= Date.now())).sort((a, b) => a.due - b.due).slice(0, n);
+function gradeCard(id, right) {
+  const c = deck().find((x) => x.id === id); if (!c) return null;
+  if (!right) c.missed = (c.missed || 0) + 1; else if (c.box >= 2) c.missed = 0;
+  c.box = right ? Math.min(BOX_DAYS.length - 1, c.box + 1) : 0; c.due = Date.now() + BOX_DAYS[c.box] * DAY + (right ? 0 : 10 * 60000);
+  writeJson('cards.json', deck());
+  const s = get(); const today = new Date().toDateString();
+  if (right && s.lastStudy !== today) { const y = new Date(Date.now() - DAY).toDateString(); save({ streak: s.lastStudy === y ? (s.streak || 0) + 1 : 1, lastStudy: today }); }
+  const log = { ...(get().reviewLog || {}) }; log[today] = (log[today] || 0) + 1; for (const k of Object.keys(log)) if (Date.now() - Date.parse(k) > 40 * DAY) delete log[k];
+  save({ xp: (get().xp || 0) + (right ? 5 : 1), reviewLog: log });
+  return c;
+}
+const cardStats = () => ({ total: deck().length, mistakes: deck().filter(isMistake).length, due: deck().filter((c) => c.due <= Date.now()).length, streak: get().streak || 0, xp: get().xp || 0 });
+const listCards = () => deck().slice();
+const removeCard = (id) => { cards = deck().filter((c) => c.id !== id); writeJson('cards.json', cards); };
+
+/** What the weekly card shows: questions asked in the notebook and cards reviewed over the last 7 days. */
+function weekStats() {
+  const since = Date.now() - 7 * DAY, log = get().reviewLog || {};
+  const reviewed = Object.entries(log).filter(([k]) => Date.now() - Date.parse(k) < 7 * DAY).reduce((n, [, v]) => n + v, 0);
+  return { asked: hist().filter((h) => h.ts >= since).length, reviewed, cards: deck().length, streak: get().streak || 0, xp: get().xp || 0 };
+}
+
+module.exports = { weekStats, listCards, addCard, dueCards, gradeCard, cardStats, removeCard, modelCache, load, get, save, setKey, getKey, publicSettings, addHistory, listHistory, removeHistory, clearHistory, DEFAULTS };

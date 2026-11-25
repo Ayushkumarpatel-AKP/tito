@@ -15,6 +15,8 @@
     summarize: () => 'Summarize the selected content in two or three sentences.',
     solve: () => 'Solve the selected problem step by step, briefly, and give the final answer.',
     fix: () => 'Explain the selected error or code and give the most likely fix.',
+    teach: () => 'Teach me this by asking, not telling: do not explain it. Ask me one short guiding question about the selected content, with a tiny hint, so I can work it out myself.',
+    quiz: () => 'Make 3 short quiz questions about what the selected content teaches. In the answer field write exactly 3 lines, each formatted as: question | short answer',
   };
   const HANDLE = 7, MIN = 40;
   const SIZES = [0.9, 1, 1.14, 1.3], SIZE_NAMES = ['Small text', 'Medium text', 'Large text', 'Extra large text'];
@@ -315,21 +317,70 @@
   }
 
   function showResult(res) {
-    const r = res.result; lastResult = r; lastVia = res.via; lastProvider = res.provider || ''; setBusy(false);
+    const id0 = reqId; const r = res.result; lastResult = r; lastVia = res.via; lastProvider = res.provider || ''; setBusy(false);
     turns.push({ role: 'assistant', text: JSON.stringify({ title: r.title, answer: r.answer, kind: r.kind, mood: r.mood, chips: r.chips, search: r.search }) });
     $('skeleton').hidden = true; $('title').textContent = r.title;
     const [label0, cls] = viaLabel[res.via] || viaLabel.online; const label = res.via === 'online' && res.provider ? res.provider : label0; $('viaTag').textContent = label; $('viaTag').className = 'tag ' + cls;
     $('note').hidden = !r.note; $('note').textContent = r.note || '';
+    $('pics').hidden = true; $('pics').textContent = ''; $('quizBox').hidden = true; $('quizBox').textContent = '';
     $('chips').textContent = ''; markUi();
     talkName = Math.random() < 0.5 ? 'talking_alt' : 'talking'; typingDone = false;
     if (r.mood === 'confused') cardPet.play('confused', { onEnd: () => cardPet.play('idle') });
     else if (r.offlineOcr) cardPet.play('thinking');
     else cardPet.play(r.mood === 'excited' ? 'success_alt' : 'success', { onEnd: () => (typingDone ? cardPet.play('idle') : cardPet.play(talkName)) });
-    renderAnswer($('answer'), r.answer); $('body').scrollTop = 0;
+    if (activeAct === 'quiz' && firstAsk) renderQuiz(r.answer); else renderAnswer($('answer'), r.answer);
+    $('body').scrollTop = 0;
+    if (r.image_query && activeAct !== 'quiz') loadPics(r.image_query, id0);
     clearTimeout(typeTimer);   // let the pet "talk" for about as long as it takes to read, then settle
     typeTimer = setTimeout(() => { typingDone = true; if (cardPet.name === talkName || cardPet.name === 'thinking') cardPet.release('idle'); }, Math.min(4500, 900 + r.answer.length * 12));
+    quickActions(r).forEach((q, i) => { const b = document.createElement('button'); b.className = 'chip on pop-in'; b.style.animationDelay = 120 + i * 80 + 'ms'; b.append(window.Icons.make(q.icon, 'white'), q.label); b.onclick = () => q.run(b); $('chips').append(b); });
     (r.chips || []).forEach((c, i) => { const b = document.createElement('button'); b.className = 'chip pop-in'; b.style.animationDelay = 250 + i * 90 + 'ms'; b.textContent = c; b.onclick = () => ask(c); $('chips').append(b); });
     if (firstAsk && res.via !== 'demo' && crop) window.tito.history.add({ title: r.title, answer: r.answer, kind: r.kind, search: r.search, via: res.via, thumb: crop.thumb });
+  }
+
+  // Pictures only when the model asked for one (a living thing, a place, a diagram...). Freely licensed Wikimedia Commons images.
+  async function loadPics(q, id) {
+    let list = []; try { list = await window.tito.images(q); } catch { return; }
+    if (id !== reqId || !Array.isArray(list) || !list.length) return;
+    const box = $('pics'); box.textContent = '';
+    for (const p of list.slice(0, 4)) { const im = new Image(); im.src = p.thumb; im.alt = p.title; im.title = p.title + ' - ' + p.credit; im.onclick = () => window.tito.openExternal(p.page); box.append(im); }
+    const c = document.createElement('small'); c.textContent = 'Wikimedia Commons'; box.append(c); box.hidden = false; placeCard();
+  }
+
+  // "Quiz me on this": three questions with hidden answers, saved as flashcards in one click.
+  function renderQuiz(text) {
+    $('answer').textContent = 'Try to answer each one in your head, then tap it.';
+    const box = $('quizBox'); box.textContent = ''; const cards = [];
+    for (const line of String(text).split(/\n+/)) {
+      const m = line.replace(/^\s*(?:[-*]|\d+[.)])\s*/, '').split('|'); if (m.length < 2 || !m[0].trim()) continue;
+      const q = m[0].trim(), a = m.slice(1).join('|').trim(); cards.push([q, a]);
+      const row = document.createElement('div'); row.className = 'q'; row.textContent = q; const ans = document.createElement('span'); ans.textContent = 'Tap to show the answer'; row.append(ans);
+      row.onclick = () => { ans.textContent = a; }; box.append(row);
+    }
+    if (!cards.length) { renderAnswer($('answer'), text); return; }
+    const save = document.createElement('button'); save.className = 'chip on'; save.append(window.Icons.make('cards', 'white'), 'Save ' + cards.length + ' flashcards');
+    save.onclick = async () => { for (const [q, a] of cards) await window.tito.cards.add(q, a); save.disabled = true; flash('Saved ' + cards.length + ' flashcards'); };
+    box.append(save); box.hidden = false;
+  }
+
+  // One extra button that fits what was circled (the model labels it as `kind`).
+  function codeBlock(text) { const m = String(text).match(/`([^`]{4,})`/g); return m ? m.map((x) => x.slice(1, -1)).join('\n') : ''; }
+  function quickActions(r) {
+    const q = r.search || r.title, out = [];
+    const web = (u) => () => window.tito.openExternal(u);
+    switch (r.kind) {
+      case 'code': out.push({ icon: 'copy', label: 'Copy fixed code', run: async () => { const c = codeBlock(r.answer); await window.tito.copyText(c || r.answer); flash(c ? 'Code copied' : 'Answer copied'); } }); break;
+      case 'error': out.push({ icon: 'magnifying-glass', label: 'Search this error', run: web('https://www.google.com/search?q=' + encodeURIComponent(q + ' error fix')) }); break;
+      case 'math': if (activeAct !== 'solve') out.push({ icon: 'calculator', label: 'Show steps', run: () => { activeAct = 'solve'; instruction = ACTIONS.solve; runAsk({ first: true }); } }); break;
+      case 'word': out.push({ icon: 'cards', label: 'Save to flashcards', run: async (b) => { const x = await window.tito.cards.add(r.title, r.answer); flash(x && x.ok ? 'Saved. ' + x.stats.total + ' cards' : 'Could not save'); b.disabled = true; } }); break;
+      case 'place': out.push({ icon: 'map-pin', label: 'Open in Maps', run: web('https://www.google.com/maps/search/' + encodeURIComponent(q)) }); break;
+      case 'object': out.push({ icon: 'image-square', label: 'See pictures', run: web('https://www.google.com/search?tbm=isch&q=' + encodeURIComponent(q)) }); break;
+      default: break;
+    }
+    if (r.due) out.push({ icon: 'bell', label: 'Remind me ' + new Date(r.due).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), run: async (b) => { const x = await window.tito.reminderAdd({ text: r.due_title || r.title, at: r.due - 3600000, kind: 'deadline' }); flash(x && x.ok ? 'Reminder set for 1 hour before' : 'Could not set it'); if (x && x.ok) b.disabled = true; } });
+    if (activeAct !== 'quiz' && !r.offlineOcr && ['word', 'object', 'math', 'text', 'code', 'other'].includes(r.kind) && !r.demo) out.push({ icon: 'brain', label: 'Quiz me on this', run: () => { activeAct = 'quiz'; instruction = ACTIONS.quiz; runAsk({ first: true }); } });
+    if (r.kind !== 'word' && !r.offlineOcr && r.kind !== 'error') out.push({ icon: 'cards', label: 'Make a flashcard', run: async (b) => { const x = await window.tito.cards.add(r.title, r.answer); flash(x && x.ok ? 'Saved. ' + x.stats.total + ' cards' : 'Could not save'); b.disabled = true; } });
+    return out;
   }
 
   // The model replies in plain text with optional "- " bullets, "1." steps, **bold** and `code`. Build real elements (never innerHTML).
@@ -380,14 +431,14 @@
     const r = await window.tito.ocr(images[0].data);
     if (r && r.ok && r.text) { await window.tito.copyText(r.text); flash('Text copied'); } else flash('No readable text found');
   };
-  $('aListen').onclick = () => {
-    if (!lastResult || !window.speechSynthesis) return;
+  $('aListen').onclick = async () => {
+    if (!lastResult) return;
     const icon = $('aListen').querySelector('i.ic');
-    if (speechSynthesis.speaking) { speechSynthesis.cancel(); icon.innerHTML = window.Icons.svg('speaker-high'); return; }
-    const u = new SpeechSynthesisUtterance(`${lastResult.title}. ${lastResult.answer}`);
-    u.lang = { english: 'en-US', hindi: 'hi-IN', hinglish: 'en-IN' }[S.language] || 'en-US';
-    u.onend = u.onerror = () => { icon.innerHTML = window.Icons.svg('speaker-high'); };
-    icon.innerHTML = window.Icons.svg('speaker-slash'); speechSynthesis.speak(u);
+    if ($('aListen').dataset.busy) { window.TitoVoice.stop(); $('aListen').dataset.busy = ''; icon.innerHTML = window.Icons.svg('speaker-high'); return; }
+    $('aListen').dataset.busy = '1'; icon.innerHTML = window.Icons.svg('speaker-slash');
+    const r = await window.TitoVoice.say(`${lastResult.title}. ${lastResult.answer}`);
+    $('aListen').dataset.busy = ''; icon.innerHTML = window.Icons.svg('speaker-high');
+    if (r && r.ok === false && r.message) flash(r.message);
   };
   function pdfImage() {
     if (!crop) return '';
@@ -464,6 +515,8 @@
     box(x, y, w, h) { resetSelection(); strokes = [[{ x, y }, { x: x + w, y: y + h }]]; finalize({ x, y, w, h }); },
     state: () => ({ mode, region, card: !card.hidden, title: $('title').textContent, answer: $('answer').textContent, pet: cardPet.name, buddy: buddy.name, level: levelOverride, act: activeAct, via: $('viaTag').textContent }),
     ask: (q) => ask(q),
+    fake(r, act) { if (!images) return; activeAct = act || 'explain'; firstAsk = activeAct === 'quiz'; showLoading(); showResult({ ok: true, via: 'online', provider: 'Test', result: r }); },
+    extras: () => ({ pics: $('pics').children.length, quiz: $('quizBox').children.length, chips: [...$('chips').children].map((c) => c.textContent) }),
     setStyle: (v) => { $('styleSel').value = v; $('styleSel').dispatchEvent(new Event('change')); },
     cardRect: () => { const r = card.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; },
     click: (sel) => document.querySelector(sel).click(),
