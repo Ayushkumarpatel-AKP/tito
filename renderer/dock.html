@@ -15,7 +15,6 @@
       <nav id="tabs">
         <button class="tab on" data-tab="today" title="Today"><i class="ic ic-pink" data-i="check-square"></i><span>Today</span></button>
         <button class="tab" data-tab="study" title="Study"><i class="ic ic-lav" data-i="brain"></i><span>Study</span></button>
-        <button class="tab" data-tab="media" title="Media"><i class="ic ic-mint" data-i="music-notes"></i><span>Media</span></button>
         <button class="tab" data-tab="daily" title="Daily"><i class="ic ic-butter" data-i="calendar-check"></i><span>Daily</span></button>
         <button class="tab" data-tab="chat" title="Chat"><i class="ic ic-coral" data-i="chat-circle-text"></i><span>Chat</span></button>
       </nav>
@@ -23,7 +22,8 @@
     </header>
 
     <form id="cmd" autocomplete="off">
-      <input id="cmdIn" type="text" placeholder="Tell Tito: remind me at 5 pm, play lofi, search..." spellcheck="false">
+      <input id="cmdIn" type="text" placeholder="Tell Tito: remind me at 5 pm, make an excel sheet, search..." spellcheck="false">
+      <button type="button" class="clip" id="btnClip" title="Attach a file: PDF, picture, Excel, Word, text (or drop it on me)"><i class="ic ic-ink" data-i="paperclip"></i></button>
       <button type="button" class="mic" id="btnMic" title="Speak (Ctrl+Shift+V)"><i class="ic ic-white" data-i="microphone"></i></button>
     </form>
     <div id="quick">
@@ -95,25 +95,6 @@
       <div id="chatDock"></div>
     </div>
 
-    <!-- MEDIA -->
-    <div class="pane" id="pane-media">
-      <form id="ytForm" class="addrow"><input id="ytIn" type="text" placeholder="Paste a YouTube link, or a song to search"><button class="btn small primary" type="submit"><i class="ic ic-white" data-i="play"></i></button></form>
-      <div id="player" hidden>
-        <div id="playerFrame"></div>
-        <div class="nowrow"><div id="nowTitle" class="now"></div><div class="eq" id="eq"><i></i><i></i><i></i><i></i><i></i></div></div>
-        <div id="ytMore" class="list"></div>
-      </div>
-      <div class="ctrl">
-        <button class="btn small" data-key="prev" title="Previous"><i class="ic ic-sky" data-i="skip-back"></i></button>
-        <button class="btn small primary" data-key="play" title="Play or pause"><i class="ic ic-white" data-i="play"></i></button>
-        <button class="btn small" data-key="next" title="Next"><i class="ic ic-sky" data-i="skip-forward"></i></button>
-      </div>
-      <p class="sub">The buttons control whatever is playing in Windows (Spotify, a browser tab, any player).</p>
-      <h4>Spotify</h4>
-      <form id="spForm" class="addrow"><input id="spIn" type="text" placeholder="Song, artist or a Spotify link"><button class="btn small mint" type="submit"><i class="ic ic-mint" data-i="spotify-logo"></i></button></form>
-      <div id="spFrame"></div>
-    </div>
-
     <!-- DAILY -->
     <div class="pane" id="pane-daily">
       <div class="statrow"><div class="stat"><b id="dDone">0/0</b><span>done today</span></div><div class="stat"><b id="dStreak">0</b><span>day streak</span></div><div class="stat"><b id="dWater">0</b><span>glasses</span></div></div>
@@ -126,10 +107,11 @@
 
   <section id="pop" class="clay" hidden>
     <div id="popRes" hidden></div>
-    <form id="popForm" autocomplete="off"><input id="popIn" type="text" placeholder="Tell Tito something..." spellcheck="false"><button type="button" class="mic" id="popMic" title="Speak"><i class="ic ic-white" data-i="microphone"></i></button></form>
+    <form id="popForm" autocomplete="off"><input id="popIn" type="text" placeholder="Tell Tito something..." spellcheck="false"><button type="button" class="clip" id="popClip" title="Attach a file"><i class="ic ic-ink" data-i="paperclip"></i></button><button type="button" class="mic" id="popMic" title="Speak"><i class="ic ic-white" data-i="microphone"></i></button></form>
     <div id="popChips"><button class="chip" data-q="add todo ">To-do</button><button class="chip" data-q="remind me ">Remind</button><button class="chip" id="popCircle">Circle</button><button class="chip on" id="popPanel">Open panel</button></div>
   </section>
   <section id="brief" class="clay" hidden></section>
+  <section id="tour" class="clay" hidden></section>
 
   <div id="stage">
     <div id="bubble" class="clay" hidden></div>
@@ -141,6 +123,7 @@
 <script src="sprite.js"></script>
 <script src="sfx.js"></script>
 <script src="md.js"></script>
+<script src="tour.js"></script>
 <script src="dock.js"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 // Turns a spoken or typed command (English, Hindi or Hinglish) into an action for Tito. Pure rules, so it also works offline.
 // parse(text, now) -> { type, ... } where type is one of
-//   reminder | todo | routine | play | media | search | quiz | dock | circle | unknown
+//   reminder | todo | routine | search | quiz | dock | circle | unknown | meeting | excel | pdf | note | write | rescue
 const NUM_WORDS = { ek: 1, one: 1, do: 2, two: 2, teen: 3, three: 3, char: 4, four: 4, paanch: 5, panch: 5, five: 5, chhe: 6, che: 6, six: 6, saat: 7, seven: 7, aath: 8, eight: 8, nau: 9, nine: 9, das: 10, ten: 10, gyarah: 11, eleven: 11, barah: 12, twelve: 12, aadha: 0.5, half: 0.5 };
 const num = (s) => { s = String(s).toLowerCase(); return /^\d+(\.\d+)?$/.test(s) ? parseFloat(s) : NUM_WORDS[s]; };
 const NUMRE = '(\\d+(?:\\.\\d+)?|' + Object.keys(NUM_WORDS).join('|') + ')';
@@ -106,14 +106,13 @@ function parse(raw, now = new Date()) {
   if (!t) return { type: 'unknown', text };
   let m;
 
-  // ---- a pasted link: YouTube plays here, Spotify embeds, any other site opens
+  // ---- a pasted link opens in the browser
   const um = text.match(/https?:\/\/[^\s]+/i);
   if (um && text.replace(um[0], '').trim().split(/\s+/).filter(Boolean).length <= 3) {
     const url = um[0].replace(/[),.;]+$/, '');
-    if (/youtu\.be|youtube\.com/i.test(url)) return { type: 'play', source: 'youtube', query: url };
-    if (/open\.spotify\.com/i.test(url)) return { type: 'play', source: 'spotify', query: url };
     try { const u = new URL(url); return { type: 'open', target: { label: u.hostname.replace(/^www\./, ''), kind: 'url', value: 'https://' + u.host + u.pathname + u.search } }; } catch { /* not a link after all */ }
   }
+  if (/^(?:show\s+(?:me\s+)?)?(?:the\s+)?(?:tito\s+)?(?:tour|walkthrough|walk through)$|^how (?:do i|to) use tito$|^tito (?:help|tour)$/.test(t)) return { type: 'tour' };
   // ---- greeting / today's brief, your name, focus report
   if (/^(?:good\s+(?:morning|afternoon|evening|night)|hello|hi|hey|namaste|namaskar)(?:\s+tito)?$|^(?:brief|my day|plan my day|what'?s up|today'?s plan|aaj ka plan|daily brief)$/.test(t)) return { type: 'brief' };
   if ((m = t.match(/^(?:call me|my name is|mera naam|you can call me)\s+(.+)$/))) { const n = tidy(m[1]).replace(/\b\w/g, (c) => c.toUpperCase()); if (n) return { type: 'pref', key: 'userName', value: n.slice(0, 30) }; }
@@ -122,15 +121,8 @@ function parse(raw, now = new Date()) {
   // ---- Teach Tito (explain a topic to Tito and get graded)
   if ((m = t.match(/^(?:teach tito|teach you|let me teach you|i will teach you|i want to teach|feynman(?: mode)?|explain to tito|teach me tito)\s*(?:about\s+|on\s+)?(.*)$/))) return { type: 'teach', topic: tidy(m[1]) };
 
-  // ---- media controls (before "play X": "play" alone just resumes)
-  if (/^(play|resume|chalu karo|chalao|start)$/.test(t)) return { type: 'media', action: 'play' };
-  if (/^(pause|stop|ruko|roko|band karo|gaana band karo|stop the music|pause music)$/.test(t) || /\b(gaana|music|song|video)\b.*\b(roko|ruko|pause|band)\b/.test(t)) return { type: 'media', action: 'pause' };
-  if (/\b(next|agla|skip)\b.*(song|gaana|track|video)?/.test(t) && !/\bnext (week|month|year)\b/.test(t) && t.split(' ').length <= 4) return { type: 'media', action: 'next' };
-  if (/\b(previous|prev|pichla|pichhla|back)\b/.test(t) && t.split(' ').length <= 4) return { type: 'media', action: 'prev' };
-  if (/\b(volume|awaaz|awaz)\b.*\b(up|badha|zyada|increase|badhao|tez)\b|\b(louder|volume up)\b/.test(t)) return { type: 'media', action: 'volup' };
-  if (/\b(volume|awaaz|awaz)\b.*\b(down|kam|ghata|decrease|ghatao|dheere)\b|\b(quieter|volume down)\b/.test(t)) return { type: 'media', action: 'voldown' };
-  if (/^(mute|unmute|chup)$/.test(t)) return { type: 'media', action: 'mute' };
-  if ((m = t.match(/(?:skip|forward|aage)\s+(?:by\s+)?(\d+)\s*(?:min|minute|minat|sec|second)/))) return { type: 'media', action: 'seek', seconds: +m[1] * (/min/.test(m[0]) ? 60 : 1) };
+  // ---- office commands: exam rescue, Excel sheets, PDF jobs, notes, web notes, meetings (see intent-office.js)
+  { const o = require('./intent-office').parse(text, t, now, { parseWhen, strip, tidy }); if (o) return o; }
 
   // ---- study: flashcards, exams, tabs
   if ((m = t.match(/^(?:add\s+|new\s+|make\s+|create\s+)?(?:a\s+)?(?:flash\s?card|card)\s*[:\-]?\s*(.+?)\s*(?:=|=>|->|:|\bmeans\b|\bis\b|\bka matlab\b)\s*(.+)$/)) || (m = t.match(/^(?:remember|yaad rakh(?:o|na)?)\s+(?:that\s+)?(.+?)\s+(?:is|means|=|ka matlab)\s+(.+)$/)))
@@ -140,7 +132,7 @@ function parse(raw, now = new Date()) {
     const w = parseWhen(m[2], now); if (w) return { type: 'exam_add', name: tidy(m[1]).replace(/\bexam\b/g, '').trim() || 'Exam', at: w.at };
   }
   if ((m = t.match(/^(?:delete|remove|cancel|hata(?:o|do)?)\s+(?:the\s+)?exam\s+(.+)$/))) return { type: 'exam_remove', query: tidy(m[1]) };
-  if ((m = t.match(/^(?:show|open|go to|switch to|take me to|kholo)\s+(?:the\s+|my\s+)?(today|study|media|daily|routines?|cards?|flash\s?cards?|chat)(?:\s+tab)?$/)))
+  if ((m = t.match(/^(?:show|open|go to|switch to|take me to|kholo)\s+(?:the\s+|my\s+)?(today|study|daily|routines?|cards?|flash\s?cards?|chat)(?:\s+tab)?$/)))
     return { type: 'tab', tab: /routine|daily/.test(m[1]) ? 'daily' : /card/.test(m[1]) ? 'study' : m[1] };
   if (/^(stop|end|cancel)\s+(?:the\s+)?(?:focus|pomodoro)(?:\s+mode|\s+timer)?$/.test(t)) return { type: 'focus_stop' };
 
@@ -208,14 +200,6 @@ function parse(raw, now = new Date()) {
   // ---- a site, video or app plus a time, with or without the word "remind": it is a reminder that offers (or, for websites, performs) the opening
   { const tg0 = findTarget(t), w0 = parseWhen(t, now);
     if (tg0 && w0 && !/\b(search|todo|to-do)\b/.test(t)) return { type: 'reminder', text: tg0.label === 'YouTube' && tg0.value.includes('search_query') ? tidy(strip(t, w0.cut)).replace(/\b(open|play|watch|dekhna|dekho|dekh|chalana|chalao)\b/g, ' ').replace(/\s+/g, ' ').trim() : 'Open ' + tg0.label, at: w0.at, whenGuessed: false, repeat: null, kind: 'reminder', open: tg0 }; }
-
-  // ---- play something
-  if ((m = t.match(/^(?:play|chalao|laga(?:o|do)?|bajao)\s+(.+?)\s+(?:on|par|pe|me|mein)\s+(youtube|yt|spotify)$/)) || (m = t.match(/^(youtube|yt|spotify)\s+(?:par|pe|me|mein|on)\s+(.+?)\s+(?:chalao|play|laga(?:o|do)?|bajao)$/)) ) {
-    const src = /spotify/.test(m[1] + m[2]) ? 'spotify' : 'youtube'; const q = /youtube|yt|spotify/.test(m[1]) && m[1].length <= 8 && /^(youtube|yt|spotify)$/.test(m[1]) ? m[2] : m[1];
-    return { type: 'play', source: src, query: tidy(q) };
-  }
-  if ((m = t.match(/^(?:play|chalao|bajao|laga(?:o|do)?)\s+(.+)$/)) && !/\b(game|quiz)\b/.test(t)) return { type: 'play', source: /spotify/.test(t) ? 'spotify' : 'youtube', query: tidy(m[1].replace(/\b(on|par|pe)\s+(youtube|spotify)\b/, '')) };
-  if ((m = t.match(/^(.+?)\s+(?:chalao|bajao|play karo)$/))) return { type: 'play', source: 'youtube', query: tidy(m[1]) };
 
   // ---- routines: "i had lunch", "maine lunch kha liya", "drank water"
   if (/\b(maine|i\s+(?:had|ate|took|drank|finished|did|have)|had|ate|drank|took|kha\s*liya|pee\s*liya|le\s*li|kar\s*liya|ho\s*gaya)\b/.test(t)) {

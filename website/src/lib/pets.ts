@@ -21,12 +21,12 @@ export async function createPets(): Promise<Pets> {
   await ready;
   const pets: Pets = {
     logo: make('logoTito', 0.17),
-    hero: make('heroTito', 1.12),
-    how: make('howTito', 1.0),
-    try: make('tryPet', 0.66),
-    off: make('offPet', 1.1),
-    foot: make('footPet', 1.2),
-    buddy: make('buddyPet', 0.58),
+    hero: make('heroTito', 1.34),
+    how: make('sceneTito', 0.82),
+    try: make('tryPet', 0.6),
+    off: make('offPet', 1.0),
+    foot: make('footPet', 1.15),
+    buddy: make('buddyPet', 0.55),
   };
   pets.logo?.play('idle', { boing: false });
   pets.how?.play('listening', { boing: false });

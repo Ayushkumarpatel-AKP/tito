@@ -4,57 +4,37 @@
 @font-face { font-family: "Nunito"; font-weight: 700; font-display: swap; src: url("/fonts/nunito-latin-700-normal.woff2") format("woff2"); }
 @font-face { font-family: "Nunito"; font-weight: 800; font-display: swap; src: url("/fonts/nunito-latin-800-normal.woff2") format("woff2"); }
 
+/* Layout idea: a deep night-sky hero that melts into a pastel, bubbly body. Dark bands (video, offline, footer) return the night between light chapters. */
 :root {
   --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
   --text-xs: 0.8125rem; --text-sm: 0.9375rem; --text-md: 1.0625rem; --text-lg: 1.25rem; --text-xl: 1.5625rem; --text-2xl: 1.953rem; --text-3xl: 2.441rem;
-  --text-display: clamp(2.9rem, 5.6vw + 0.4rem, 6.1rem); --text-section: clamp(2.2rem, 3.4vw + 0.6rem, 4.1rem); --text-title: clamp(1.3rem, 0.8vw + 1rem, 1.75rem); --text-lead: clamp(1.2rem, 0.5vw + 1.05rem, 1.5rem);
+  --text-display: clamp(2.8rem, 5.2vw + 0.5rem, 5.4rem); --text-section: clamp(2rem, 2.6vw + 0.7rem, 3.3rem); --text-title: clamp(1.15rem, 0.5vw + 1rem, 1.45rem); --text-lead: clamp(1.1rem, 0.4vw + 1rem, 1.35rem);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --dur-micro: 120ms; --dur-short: 240ms; --dur-long: 520ms;
-  --color-error: oklch(52% 0.19 27); --color-success: oklch(46% 0.12 150);
-  --container: 1360px; --gutter: 56px; --gap-columns: 28px; --section-gap-s: 96px; --section-gap: 120px; --section-gap-l: 152px;
-  --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
+  --container: 1240px; --gutter: 40px; --gap-columns: 24px; --section-gap: 104px;
+  --z-base: 1; --z-raised: 10; --z-sticky: 200; --z-sticky-nav: 300;
 
-  /* ground: layers of coloured clay, stacked like sheets */
-  --color-paper: oklch(91% 0.065 176);      /* mint */
-  --color-paper-2: oklch(93% 0.088 98);     /* butter */
-  --color-paper-3: oklch(87% 0.078 312);    /* lilac */
-  --clay-peach: oklch(89% 0.075 48);
-  --clay-rose: oklch(88% 0.072 12);
-  --clay-night: oklch(30% 0.065 300);       /* the dark slab */
-  --clay-white: oklch(97.5% 0.014 100);
-  --clay-white-2: oklch(95% 0.03 100);
-  --color-ink: oklch(25% 0.05 305);
-  --color-ink-2: oklch(36% 0.05 305);
-  --color-muted: oklch(45% 0.045 305);
-  --color-on-night: oklch(95% 0.02 100);
-  --color-on-night-2: oklch(82% 0.04 300);
-  --color-rule: oklch(25% 0.05 305 / 0.14);
-  --color-accent: oklch(70% 0.165 32);      /* coral */
-  --color-accent-hover: oklch(64% 0.175 32);
-  --color-accent-ink: oklch(20% 0.05 305);
-  --color-focus: oklch(42% 0.2 300);
-  --color-leaf: oklch(62% 0.13 170);
-  --color-sun: oklch(80% 0.14 85);
-  --color-plum: oklch(56% 0.16 310);
+  /* night */
+  --night-0: #0f0d2e; --night-1: #1a1546; --night-2: #2b1f6e; --night-3: #3d2b94;
+  --on-night: #f4f1ff; --on-night-2: #bfb6ee;
+  --glow-blue: #55b7ff; --glow-violet: #9a7bff; --glow-pink: #ff74c0; --star: #ffd45e;
 
-  /* clay: a light edge on top, a soft belly shadow, a thick drop below */
-  --clay-hi: oklch(100% 0 0 / 0.78);
-  --clay-lo: oklch(25% 0.06 305 / 0.2);
-  --clay-lo-2: oklch(25% 0.06 305 / 0.1);
-  --shadow-clay: inset 0 3px 0 var(--clay-hi), inset 0 -12px 20px var(--clay-lo-2), 0 22px 36px var(--clay-lo), 0 7px 0 var(--clay-lo-2);
-  --shadow-clay-press: inset 0 2px 0 var(--clay-hi), inset 0 -5px 9px var(--clay-lo-2), 0 8px 14px var(--clay-lo);
-  --shadow-clay-sm: inset 0 2px 0 var(--clay-hi), inset 0 -6px 10px var(--clay-lo-2), 0 10px 18px var(--clay-lo), 0 4px 0 var(--clay-lo-2);
-  --shadow-slab: 0 -16px 30px var(--clay-lo-2), inset 0 3px 0 var(--clay-hi);
+  /* day */
+  --day-0: #f6f2ff; --day-1: #ffffff; --day-2: #ece6ff;
+  --ink: #21194a; --ink-2: #4a4080; --muted: #6e66a3; --rule: rgb(33 25 74 / 0.12);
+  --pastel-lilac: #ebe4ff; --pastel-blue: #dfeeff; --pastel-butter: #fff0c4; --pastel-rose: #ffe0ee; --pastel-mint: #d8f6e8; --pastel-peach: #ffe6d6; --pastel-violet: #e0d4ff;
+  --accent: #8a5cf6; --accent-2: #ff6fb5; --accent-ink: #ffffff; --leaf: #1fa971; --focus: #5b34d6;
+  --grad-cta: linear-gradient(120deg, #ff6fb5 0%, #b062f0 55%, #7b5cf6 100%);
+  --grad-word: linear-gradient(100deg, #ff8fd0 0%, #b9a2ff 50%, #8fc9ff 100%);
 
+  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.8) inset, 0 18px 40px -18px rgb(70 40 160 / 0.35), 0 3px 8px rgb(70 40 160 / 0.08);
+  --shadow-soft: 0 12px 30px -16px rgb(70 40 160 / 0.3);
+  --shadow-night: 0 24px 60px -20px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.08) inset;
+  --radius-card: 28px; --radius-chip: 999px; --radius-slab: clamp(28px, 4vw, 56px);
+
+  /* names the base stylesheet already uses */
+  --color-paper: var(--day-0); --color-muted: var(--muted); --color-ink: var(--ink); --color-focus: var(--focus);
   --font-display: "Bagel Fat One", "Nunito", ui-rounded, system-ui, sans-serif;
   --font-body: "Nunito", ui-rounded, system-ui, sans-serif;
-  --font-outlier: var(--font-body);
-  --clay-night-2: oklch(37% 0.07 300);
-  --night-hi: oklch(100% 0 0 / 0.14);
-  --night-lo: oklch(12% 0.04 300 / 0.5);
-  --night-track: oklch(24% 0.06 300);
   --font-mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
-
-  --radius-slab: clamp(32px, 5vw, 72px); --radius-card: 34px; --radius-chip: 22px; --radius-pill: 999px; --rule-hair: 1px; --shadow-card: var(--shadow-clay);
-  --tracking-display: -0.01em;
 }

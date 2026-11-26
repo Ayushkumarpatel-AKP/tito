@@ -5,9 +5,9 @@ import { qs, qsa } from '../lib/dom';
 import type { StateName } from '../lib/sprite';
 
 const MAP: Record<string, [StateName, string]> = {
-  watch: ['talking', 'Press play and I will narrate.'],
   try: ['searching', 'Go on, draw around something.'],
   features: ['success_alt', 'Plenty to play with.'],
+  tools: ['talking', 'I can plan your exams too.'],
   offline: ['typing', 'I work offline too.'],
   keys: ['thinking', 'Any AI key will do.'],
   setup: ['listening_wave', 'Five easy steps.'],

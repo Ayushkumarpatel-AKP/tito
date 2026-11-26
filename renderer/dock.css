@@ -101,7 +101,7 @@ input[type=datetime-local], input[type=date], input[type=time] { border: 0; outl
 * { scrollbar-width: none; } *::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .pane { padding-top: 6px; -webkit-mask-image: linear-gradient(transparent 0, #000 8px, #000 calc(100% - 20px), transparent 100%); mask-image: linear-gradient(transparent 0, #000 8px, #000 calc(100% - 20px), transparent 100%); }
 #reply { scrollbar-width: none; }
-#bubble { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; max-height: 98px; }
+#bubble { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }
 .item .chip { flex: none; font-size: 11.5px; padding: 4px 9px; white-space: nowrap; }
 #reply .alertbtns { flex-wrap: wrap; }
 
@@ -155,9 +155,9 @@ button:focus, input:focus, textarea:focus, select:focus { outline: none; } butto
 .tpl div + div { margin-top: 3px; } .tpl.good b { color: #1fb978; } .tpl.gap b { color: #e0900f; } .tpl.wrong b { color: #ff6b6b; }
 
 /* ---- small popup (pet + a short form) and the greeting popup */
-#pop, #brief { position: absolute; bottom: 168px; width: 332px; padding: 12px; border-radius: 26px; animation: popin .3s var(--spring) both; }
-#root.right #pop, #root.right #brief { right: 6px; } #root.left #pop, #root.left #brief { left: 6px; }
-#root.pop #bubble, #root.open #pop, #root.open #brief, #root:not(.pop) #pop, #root:not(.pop) #brief { display: none; }
+#pop, #brief, #tour { position: absolute; bottom: 168px; width: 332px; padding: 12px; border-radius: 26px; animation: popin .3s var(--spring) both; }
+#root.right #pop, #root.right #brief, #root.right #tour { right: 6px; } #root.left #pop, #root.left #brief, #root.left #tour { left: 6px; }
+#root.pop #bubble, #root.open #pop, #root.open #brief, #root.open #tour, #root:not(.pop) #pop, #root:not(.pop) #brief, #root:not(.pop) #tour { display: none; }
 #popRes { margin-bottom: 8px; font-size: 13.5px; font-weight: 700; line-height: 1.38; } #popRes .ptxt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; overflow-wrap: anywhere; }
 #popRes .alertbtns, #brief .alertbtns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
 #popForm { position: relative; } #popForm input { padding-right: 52px; } #popForm .mic { right: 4px; top: 4px; }
@@ -188,3 +188,30 @@ button:focus, input:focus, textarea:focus, select:focus { outline: none; } butto
 .fmeter { height: 10px; border-radius: 999px; background: var(--white); box-shadow: inset 0 2px 4px rgb(var(--sh) / .2); margin: 6px 6px 4px; overflow: hidden; } .fmeter i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #ff8a8a, #f0a020, #1fb978); transition: width .6s; }
 #fLive { text-align: center; min-height: 18px; } #fLive.bad { color: #ff6b6b; font-weight: 800; } #fReport { margin-top: 10px; }
 #fReport .tpl { text-align: left; }
+
+#bubble { max-height: none; overflow: visible; }
+
+/* ---- dropping a PDF on Tito */
+#root.dropping #stage { filter: drop-shadow(0 0 10px rgb(var(--glow) / .9)); }
+#root.dropping #panel { outline: 3px dashed rgb(var(--glow) / .8); outline-offset: -6px; }
+
+/* ---- paperclip beside the microphone */
+.clip { position: absolute; right: 42px; top: 4px; width: 34px; height: 34px; border: 0; border-radius: 50%; cursor: pointer; background: transparent; color: var(--ink2); display: grid; place-items: center; transition: transform .18s var(--spring), background .2s; }
+.clip:hover { transform: scale(1.1); background: rgb(var(--glow) / .3); } .clip .ic { font-size: 20px; margin: 0; }
+#cmd input { padding-right: 88px; } #popForm input { padding-right: 88px; }
+
+/* ---- the tour, the update card and "what is new" */
+#tour { padding: 16px 16px 12px; max-height: 410px; overflow-y: auto; display: grid; gap: 10px; }
+#tour .thead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; } #tour .thead b { font-size: 19px; font-weight: 800; line-height: 1.2; } #tour .thead span { flex: none; font-size: 11.5px; font-weight: 800; color: var(--ink2); }
+#tour .tbody { font-size: 13.5px; font-weight: 700; line-height: 1.42; color: var(--ink); }
+#tour input.tname { width: 100%; font-size: 15px; font-weight: 700; }
+#tour .tkeys { display: flex; align-items: center; gap: 6px; } #tour .tkey { display: inline-grid; place-items: center; min-width: 40px; padding: 7px 11px; border-radius: 10px; background: linear-gradient(170deg, var(--white), var(--b2)); box-shadow: 0 3px 0 rgb(var(--sh) / .25), 0 2px 0 #fff inset; font-weight: 800; font-size: 12.5px; } #tour .tkeys b { color: var(--ink2); }
+#tour .tchips { display: flex; flex-wrap: wrap; gap: 6px; } #tour .tchips .chip { font-size: 12px; padding: 6px 11px; }
+#tour .tres { padding: 8px 11px; border-radius: 14px; background: var(--field); font-size: 12.5px; font-weight: 700; line-height: 1.4; box-shadow: 0 2px 6px rgb(var(--sh) / .12); }
+#tour .ttabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; } #tour .ttab { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 14px; background: var(--field); font-size: 12px; font-weight: 800; box-shadow: 0 2px 6px rgb(var(--sh) / .1); } #tour .ttab small { display: block; font-size: 10.5px; font-weight: 600; color: var(--ink2); } #tour .ttab .ic { font-size: 20px; flex: none; }
+#tour .tex { display: grid; gap: 5px; } #tour .tex span { padding: 6px 10px; border-radius: 11px; background: var(--field); font: 700 11.5px/1.3 ui-monospace, Consolas, monospace; box-shadow: 0 2px 6px rgb(var(--sh) / .1); overflow-wrap: anywhere; }
+#tour .tlist { display: grid; gap: 6px; padding: 0; margin: 0; list-style: none; } #tour .tlist li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 11px; border-radius: 12px; background: var(--field); font-size: 12.5px; font-weight: 700; box-shadow: 0 2px 6px rgb(var(--sh) / .1); } #tour .tlist li b { font: 800 11.5px/1 ui-monospace, Consolas, monospace; color: var(--ink2); white-space: nowrap; }
+#tour .tlist.plain li { justify-content: flex-start; }
+#tour .tnav { display: flex; align-items: center; gap: 8px; margin-top: 4px; } #tour .tnav .dots { display: flex; gap: 5px; flex: 1; justify-content: center; } #tour .tnav .dots i { width: 7px; height: 7px; border-radius: 50%; background: rgb(var(--sh) / .22); } #tour .tnav .dots i.on { background: var(--a2); width: 18px; border-radius: 6px; }
+#tour .tskip { border: 0; background: transparent; color: var(--ink2); font: 700 11.5px/1 inherit; cursor: pointer; padding: 4px 2px; text-align: left; } #tour .tskip:hover { text-decoration: underline; }
+#stage.tourring::before { content: ''; position: absolute; left: 50%; bottom: 40px; width: 120px; height: 120px; margin-left: -60px; border-radius: 50%; border: 3px solid var(--a1); opacity: 0; animation: ringwave 1.6s ease-out infinite; pointer-events: none; }

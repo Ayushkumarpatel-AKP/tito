@@ -10,10 +10,11 @@ import { initHero } from './sections/hero';
 import { initHow } from './sections/how';
 import { initDemo } from './sections/demo';
 import { initFeatures } from './sections/features';
+import { initTools } from './sections/tools';
+import { initSky } from './sections/sky';
 import { initOffline } from './sections/offline';
 import { initKeys } from './sections/keys';
 import { initCompanion } from './sections/companion';
-import { initVideo } from './sections/video';
 import { initCopy, initFaq, initFooter, initHeadings, initMagnets, initNav, initReveals } from './sections/misc';
 
 gsap.registerPlugin(ScrollTrigger, SplitText);
@@ -40,9 +41,10 @@ async function boot(): Promise<void> {
   initReveals();
   initDemo(pets);
   initFeatures();
+  initTools();
+  initSky();
   initOffline(pets);
   initKeys();
-  initVideo();
   initFaq();
   initCopy();
   initFooter(pets);

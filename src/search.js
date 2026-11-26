@@ -2,9 +2,12 @@
 // and a plain readable-text fetch for any page. Everything has a short timeout and never throws into the caller.
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 Tito/1.0';
 
+// Wikipedia and Wikimedia ask for a descriptive user agent and answer a browser-like one with 429 (Too Many Requests)
+const WIKI_UA = 'Tito/1.5 (https://github.com/Ayushkumarpatel-AKP/tito; desktop study assistant)';
+const isWiki = (u) => /^https?:\/\/[^/]*\.(wikipedia|wikimedia)\.org\//i.test(u);
 async function get(url, { timeout = 9000, headers = {}, method = 'GET', body } = {}) {
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), timeout);
-  try { return await fetch(url, { method, body, headers: { 'user-agent': UA, 'accept-language': 'en', ...headers }, signal: ctl.signal, redirect: 'follow' }); }
+  try { return await fetch(url, { method, body, headers: { 'user-agent': isWiki(url) ? WIKI_UA : UA, 'accept-language': 'en', ...headers }, signal: ctl.signal, redirect: 'follow' }); }
   finally { clearTimeout(t); }
 }
 

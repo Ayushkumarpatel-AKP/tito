@@ -2,7 +2,7 @@
  * The demo video, drawn by code. seek(t) sets every element from the time t alone, so any frame can be rendered
  * on demand (tools/render-video.js captures 30 frames a second and muxes them with the narration).
  */
-import '../styles/site.css';
+import '../styles/legacy/site.css';
 import './video.css';
 import { gsap } from 'gsap';
 import { def, frameAt, ready, type StateName } from '../lib/sprite';

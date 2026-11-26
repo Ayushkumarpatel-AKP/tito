@@ -85,4 +85,4 @@ async function save(entries, heading, defaultName, parent) {
 const renderToBuffer = (entries, heading) => render(pageHtml(entries, heading));
 
 const safeName = (s) => String(s || 'tito').replace(/[^\w\- ]+/g, '').trim().slice(0, 40).replace(/\s+/g, '-') || 'tito';
-module.exports = { save, renderToBuffer, safeName };
+module.exports = { save, renderToBuffer, renderHtml: render, safeName };

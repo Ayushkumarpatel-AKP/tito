@@ -6,7 +6,7 @@ import { qsa, reduced } from '../lib/dom';
 /** Pack sizes: the bars fill and the numbers count up once, the 3D Wi-Fi bobs, Tito types. */
 export function initOffline(pets: Pets): void {
   const bars = qsa('.bar i');
-  const counters = qsa('[data-count]');
+  const counters = qsa('.packs [data-count]');
   const packs = qsa('.pack');
   const motion = !reduced();
 

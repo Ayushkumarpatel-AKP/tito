@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 // every window follows the chosen theme (set on <html data-theme>)
 const applyTheme = (t) => { try { document.documentElement.dataset.theme = t || 'mochi'; } catch { /* page not ready */ } };
@@ -6,7 +6,7 @@ window.addEventListener('DOMContentLoaded', () => { ipcRenderer.invoke('settings
 ipcRenderer.on('settings:changed', (_e, s) => applyTheme(s && s.theme));
 
 const inv = (ch) => (...a) => ipcRenderer.invoke(ch, ...a);
-const EVENTS = ['overlay:open', 'overlay:closed', 'win:tab', 'settings:changed', 'ai:wait', 'packs:progress', 'dock:alert', 'dock:data', 'dock:layout', 'dock:tab', 'dock:voice', 'dock:focus', 'dock:cheer', 'dock:idle', 'dock:summon', 'dock:startFocus', 'dock:stopFocus', 'dock:cards', 'dock:teach', 'dock:pop', 'dock:brief', 'dock:nudge', 'dock:focusLive'];
+const EVENTS = ['overlay:open', 'overlay:closed', 'win:tab', 'settings:changed', 'ai:wait', 'packs:progress', 'dock:alert', 'dock:data', 'dock:layout', 'dock:tab', 'dock:voice', 'dock:focus', 'dock:cheer', 'dock:idle', 'dock:summon', 'dock:startFocus', 'dock:stopFocus', 'dock:cards', 'dock:teach', 'dock:pop', 'dock:brief', 'dock:nudge', 'dock:focusLive', 'dock:tour', 'dock:update', 'dock:whatsnew'];
 
 contextBridge.exposeInMainWorld('tito', {
   getSettings: inv('settings:get'),
@@ -41,13 +41,15 @@ contextBridge.exposeInMainWorld('tito', {
   info: inv('app:info'),
   dock: {
     data: inv('dock:data'), open: inv('dock:open'), hide: inv('dock:hide'), command: inv('dock:command'), brief: inv('dock:brief'), state: inv('dock:state'),
+    tourDone: inv('tour:done'), pin: inv('dock:pin'), installUpdate: () => ipcRenderer.send('app:installUpdate'),
+    file: inv('dock:file'), pdf: inv('dock:pdf'), pickFiles: inv('dock:pickFiles'), pathsOf: (files) => Array.from(files || []).map((f) => { try { return webUtils.getPathForFile(f); } catch { return ''; } }),
     bubble: inv('dock:bubble'), pop: inv('dock:pop'), popH: inv('dock:popH'), briefData: inv('dock:briefData'), undo: inv('undo:run'), focusStart: inv('focus:start'), focusStop: inv('focus:stop'), focusPause: inv('focus:pause'), openTarget: inv('target:open'),
     dragStart: () => ipcRenderer.send('dock:dragstart'), drag: (dx, dy) => ipcRenderer.send('dock:drag', { dx, dy }), dragEnd: () => ipcRenderer.send('dock:dragend'),
     todoAdd: inv('todo:add'), todoToggle: inv('todo:toggle'), todoRemove: inv('todo:remove'), todoClearDone: inv('todo:clearDone'),
     reminderAdd: inv('reminder:add'), reminderRemove: inv('reminder:remove'), reminderSnooze: inv('reminder:snooze'), reminderAck: inv('reminder:ack'),
     routineMark: inv('routine:mark'), routineUnmark: inv('routine:unmark'), routineSave: inv('routine:save'), routineRemove: inv('routine:remove'),
     importIcs: inv('ics:import'), examAdd: inv('exam:add'), examRemove: inv('exam:remove'),
-    mediaKey: inv('media:key'), teachEvaluate: inv('teach:evaluate'), teachFinish: inv('teach:finish'), playerUrl: inv('media:playerUrl'), spotify: inv('media:spotify'), youtubeInfo: inv('media:youtubeInfo'),
+    teachEvaluate: inv('teach:evaluate'), teachFinish: inv('teach:finish'),
     lookup: inv('search:lookup'), explainText: inv('clip:explain'), images: inv('search:images'), transcribe: inv('voice:transcribe'),
   },
   overlayReady: () => ipcRenderer.send('overlay:ready'),
@@ -57,3 +59,13 @@ contextBridge.exposeInMainWorld('tito', {
   toastClick: () => ipcRenderer.send('toast:click'),
   on: (ch, cb) => { if (EVENTS.includes(ch)) ipcRenderer.on(ch, (_e, p) => cb(p)); },
 });
+
+// Files dropped on Tito: a File object cannot cross into the page, so the path is read here and posted as a message.
+const fileKind = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+window.addEventListener('dragover', (e) => { if (fileKind(e)) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; window.postMessage({ tito: 'dragover' }, '*'); } }, true);
+window.addEventListener('dragleave', (e) => { if (!e.relatedTarget) window.postMessage({ tito: 'dragleave' }, '*'); }, true);
+window.addEventListener('drop', (e) => {
+  if (!fileKind(e)) return; e.preventDefault();
+  const paths = Array.from(e.dataTransfer.files || []).map((f) => { try { return webUtils.getPathForFile(f); } catch { return ''; } }).filter(Boolean);
+  window.postMessage({ tito: 'drop', paths }, '*');
+}, true);

@@ -71,7 +71,7 @@ const clearDone = () => { data.todos = data.todos.filter((x) => !x.done); save()
 /** at: epoch ms. repeat: null | 'daily' | 'weekdays' | 'weekly'. kind: 'reminder' | 'deadline'. */
 function addReminder(text, at, { repeat = null, kind = 'reminder', open = null } = {}) {
   text = String(text || '').trim().slice(0, 200); if (!text || !Number.isFinite(at)) return null;
-  const r = { id: uid(), text, at, repeat, kind, open: open && open.value ? { label: String(open.label || '').slice(0, 30), kind: open.kind === 'app' ? 'app' : 'url', value: String(open.value).slice(0, 300) } : null, fired: false, made: Date.now() }; data.reminders.push(r); data.reminders.sort((a, b) => a.at - b.at); save(); return r;
+  const r = { id: uid(), text, at, repeat, kind, open: open && open.value ? { label: String(open.label || '').slice(0, 30), kind: open.kind === 'app' ? 'app' : 'url', value: String(open.value).slice(0, 300), ...(open.noAuto ? { noAuto: true } : {}), ...(open.join === 'join' || open.join === 'start' ? { join: open.join } : {}) } : null, fired: false, made: Date.now() }; data.reminders.push(r); data.reminders.sort((a, b) => a.at - b.at); save(); return r;
 }
 const removeReminder = (id) => { data.reminders = data.reminders.filter((x) => x.id !== id); save(); };
 function snooze(id, minutes = 10) { const r = data.reminders.find((x) => x.id === id); if (!r) return null; r.at = Date.now() + minutes * 60000; r.fired = false; save(); return r; }

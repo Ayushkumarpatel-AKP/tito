@@ -1,20 +1,23 @@
-// Tito Dock: the little pet that lives at the edge of the screen, with its panel (today, study, media, daily).
-// Owns the dock window, the task scheduler's alerts, voice commands and the media / search helpers behind them.
+// Tito Dock: the little pet that lives at the edge of the screen, with its panel (today, study, daily).
+// Owns the dock window, the task scheduler's alerts, voice commands and the search helpers behind them.
 const { BrowserWindow, Notification, screen, ipcMain, shell, globalShortcut, session } = require('electron');
 const path = require('path');
 const store = require('./store');
 const tasks = require('./tasks');
 const intent = require('./intent');
-const media = require('./media');
 const search = require('./search');
 const voice = require('./voice');
+const office = require('./office');
+const notes = require('./notes');
+const exam = require('./exam');
 
 const PET = { w: 190, h: 176 };                    // the pet's own area, always at the bottom of the window
 const PANEL = { w: 404, h: 540 };                  // the panel sits above it and shrinks on short screens
-let win = null, open = false, pop = false, popH = 150, deps = null, pos = null, bubble = false, hiddenForOverlay = false;
+let pinned = false;                                   // a tour, update or "what is new" card is open: clicking elsewhere does not close it
+let win = null, open = false, pop = false, popH = 150, deps = null, pos = null, bubble = 0, hiddenForOverlay = false;
 const POP_W = 344;
 let focusSession = null;
-const BUBBLE_H = 150;                                // extra height while the pet is speaking, so a long bubble is never cut off   // pos: { side: 'left' | 'right', bottom: screen y of the pet's bottom edge }
+const BUBBLE_Y = 150;                                // extra height while the pet is speaking, so a long bubble is never cut off   // pos: { side: 'left' | 'right', bottom: screen y of the pet's bottom edge }
 
 const openOut = (u) => (process.env.TITO_DOCK_HIDDEN ? Promise.resolve() : shell.openExternal(u));   // tests never open a real browser or app
 const send = (ch, p) => { if (win && !win.isDestroyed()) win.webContents.send(ch, p); };
@@ -29,13 +32,14 @@ function workArea() {
 }
 function bounds() {
   const wa = workArea(), right = !pos || pos.side !== 'left';
-  const minPanel = 300;
+  const minPanel = 300, bubbleExtra = bubble && !open && !pop ? Math.max(0, BUBBLE_Y + bubble + 6 - PET.h) : 0;   // room the speech bubble needs above the pet
   let bottom = pos && Number.isFinite(pos.bottom) ? pos.bottom : wa.y + wa.height - 8;
-  bottom = Math.min(Math.max(bottom, wa.y + PET.h + (open ? minPanel : pop ? Math.min(popH, 200) : 0)), wa.y + wa.height);
+  bottom = Math.min(Math.max(bottom, wa.y + PET.h + (open ? minPanel : pop ? Math.min(popH, 200) : bubbleExtra)), wa.y + wa.height);
   const panelH = open ? Math.min(PANEL.h, bottom - wa.y - PET.h) : 0;
   const popExtra = pop && !open ? Math.min(popH, bottom - wa.y - PET.h) : 0;
-  const w = open ? PANEL.w : pop ? POP_W : PET.w, h = PET.h + panelH + popExtra + (bubble && !open && !pop ? BUBBLE_H : 0);
-  return { x: right ? wa.x + wa.width - w - 6 : wa.x + 6, y: bottom - h, width: w, height: h };
+  const w = open ? PANEL.w : pop ? POP_W : PET.w, h = PET.h + panelH + popExtra + bubbleExtra;
+  const hh = Math.min(h, bottom - wa.y);
+  return { x: right ? wa.x + wa.width - w - 6 : wa.x + 6, y: bottom - hh, width: w, height: hh };
 }
 function apply() { if (win && !win.isDestroyed()) { win.setBounds(bounds()); send('dock:layout', { open, pop, side: pos ? pos.side : 'right' }); } }
 
@@ -47,13 +51,27 @@ function ensure() {
     skipTaskbar: true, alwaysOnTop: true, hasShadow: false, focusable: true,
     webPreferences: { preload: path.join(__dirname, '..', 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: false },
   });
-  win.setAlwaysOnTop(true, 'floating'); win.setVisibleOnAllWorkspaces(true);
+  win.setAlwaysOnTop(true, 'screen-saver'); win.setVisibleOnAllWorkspaces(true);
+  startKeepOnTop();
   if (process.env.TITO_DOCK_HIDDEN) { win.show = win.showInactive = win.focus = () => {}; }   // tests: the window never appears on the real desktop
   win.loadFile(path.join(__dirname, '..', 'renderer', 'dock.html'));
   win.once('ready-to-show', () => { if (store.get().dockOn !== false) win.showInactive(); });
   win.on('closed', () => { win = null; });
-  win.on('blur', () => { if (pop && !open) setTimeout(() => { if (pop && win && !win.isDestroyed() && !win.isFocused()) setPop(false); }, 400); });   // clicking elsewhere closes the small popup
+  win.on('blur', () => { if (pop && !open && !pinned) setTimeout(() => { if (pop && !pinned && win && !win.isDestroyed() && !win.isFocused()) setPop(false); }, 400); });   // clicking elsewhere closes the small popup
   return win;
+}
+
+// Other apps (a maximised editor, a game launcher, anything topmost) can end up above the pet. Re-assert the top slot while it is shown,
+// without taking focus, and re-fit it when a screen is plugged in, removed or resized so it can never sit off screen.
+let topTimer = null;
+function startKeepOnTop() {
+  if (topTimer || process.env.TITO_DOCK_HIDDEN) return;
+  topTimer = setInterval(() => {
+    if (!win || win.isDestroyed()) return;
+    if (!win.isVisible()) { if (store.get().dockOn !== false && !hiddenForOverlay) win.showInactive(); return; }
+    try { if (win.isFocused()) return; if (!win.isAlwaysOnTop()) win.setAlwaysOnTop(true, 'screen-saver'); win.moveTop(); } catch { /* ignore */ }   // never while you are typing in it
+  }, 2500);
+  for (const ev of ['display-metrics-changed', 'display-added', 'display-removed']) screen.on(ev, () => { if (win && !win.isDestroyed()) apply(); });
 }
 
 function toggleDock() {
@@ -62,8 +80,8 @@ function toggleDock() {
   return win.isVisible();
 }
 function openPanel(tab) { ensure(); open = true; pop = false; apply(); win.show(); win.focus(); send('dock:tab', tab || null); }
-function setOpen(v) { open = !!v; if (open) { pop = false; bubble = false; } apply(); if (open && win) win.focus(); }
-function setPop(v) { pop = !!v; if (pop) { open = false; bubble = false; } apply(); if (pop && win && !process.env.TITO_DOCK_HIDDEN) win.focus(); }
+function setOpen(v) { open = !!v; if (open) { pop = false; bubble = 0; } apply(); if (open && win) win.focus(); }
+function setPop(v) { pop = !!v; if (pop) { open = false; bubble = 0; } apply(); if (pop && win && !process.env.TITO_DOCK_HIDDEN) win.focus(); }
 
 // ------------------------------------------------------------------ alerts (reminders, routines, todos)
 const ROUTINE_SAY = {
@@ -80,12 +98,30 @@ function alert(p) {
   if (win && !win.isVisible() && store.get().dockOn !== false && !hiddenForOverlay) win.showInactive();   // not while the circle overlay is open
 }
 function onTaskEvent(e) {
-  if (e.type === 'reminder' && e.reminder.open && e.reminder.open.kind === 'url' && store.get().autoOpenSites !== false) openTarget(e.reminder.open);   // a site or video opens at the time; apps wait for your tap
-  if (e.type === 'reminder') alert({ title: e.reminder.kind === 'deadline' ? 'Deadline' : 'Reminder', ring: e.reminder.kind !== 'deadline' || true, text: e.reminder.text + (e.reminder.open && e.reminder.open.kind === 'url' && store.get().autoOpenSites !== false ? '  (opening ' + e.reminder.open.label + ')' : ''), open: e.reminder.open, anim: e.reminder.kind === 'deadline' ? 'worried' : 'alarm', id: e.reminder.id, snooze: true, tab: 'today' });
+  if (e.type === 'reminder' && e.reminder.open && e.reminder.open.kind === 'url' && !e.reminder.open.noAuto && store.get().autoOpenSites !== false) openTarget(e.reminder.open);   // a site or video opens at the time; apps wait for your tap
+  if (e.type === 'reminder') alert({ title: e.reminder.kind === 'deadline' ? 'Deadline' : 'Reminder', ring: e.reminder.kind !== 'deadline' || true, text: e.reminder.text + (e.reminder.open && e.reminder.open.kind === 'url' && !e.reminder.open.noAuto && store.get().autoOpenSites !== false ? '  (opening ' + e.reminder.open.label + ')' : ''), open: e.reminder.open, anim: e.reminder.kind === 'deadline' ? 'worried' : 'alarm', id: e.reminder.id, snooze: true, tab: 'today' });
   else if (e.type === 'routine') alert({ title: e.routine.name, text: ROUTINE_SAY[e.routine.name] || e.routine.name, anim: e.routine.anim === 'eating' ? 'hungry' : e.routine.anim, routine: e.routine.id, tab: 'daily' });
   else if (e.type === 'todo-done') send('dock:cheer', { anim: 'celebrate', text: 'Done. Nice work.' });
   else if (e.type === 'routine-done') send('dock:cheer', { anim: 'tick_done', text: `${e.routine.name} done.` });
   send('dock:data', tasks.snapshot());
+}
+
+
+// ------------------------------------------------------------------ first-time tour, updates, what is new
+const WHATS_NEW = [
+  'Ask for meetings, Excel sheets, PDF tools and topic notes, with no AI key',
+  'Attach any file: paperclip, drag and drop, or paste a screenshot',
+  'Exam Rescue Autopilot plans every day before your exam',
+  'A first-time tour, and gentler update messages',
+];
+function showCard(ch, payload) { ensure(); if (win && !win.isVisible() && store.get().dockOn !== false && !hiddenForOverlay) win.showInactive(); setPop(true); send(ch, payload); }
+function showTour() { showCard('dock:tour', { name: store.get().userName || '', first: !store.get().tourDone }); }
+function showWhatsNew(version) { store.save({ lastVersion: version }); showCard('dock:whatsnew', { version, name: store.get().userName || '', items: WHATS_NEW }); }
+/** Update messages. 'downloading' is a quiet bubble, 'ready' a card with Restart and Later. Returns false when the dock is hidden (the caller then uses a toast). */
+function updateEvent(kind, info) {
+  if (store.get().dockOn === false) return false;
+  if (kind === 'ready') { showCard('dock:update', { kind, version: info && info.version, name: store.get().userName || '' }); return true; }
+  ensure(); send('dock:update', { kind, version: info && info.version, name: store.get().userName || '' }); return true;
 }
 
 // ------------------------------------------------------------------ commands (typed or spoken)
@@ -101,7 +137,7 @@ const ASSISTANT = [
   'You are Tito, a friendly, smart desktop assistant and study buddy who lives on the user\'s screen. You chat about anything, explain things clearly and write code. The user writes in English, Hindi or Hinglish: answer in the same language style.',
   'Format answers in Markdown: short paragraphs, lists, **bold** for key words, and fenced code blocks with the language name (```python) for ALL code, so it can be copied. Be accurate and as brief as the question allows. If something important is unclear (which site, what time, which item), do not guess: ask one short clarifying question.',
   'If the user wants Tito to DO something inside Tito (a reminder, to-do, music, a web search, opening a site or app, routines, flashcards, exams, switching tab), reply with ONLY one line and no other text: ACTION {json}. The json has "action" and as needed "text", "at", "query", "source", "open", "name", "times", "on", "front", "back", "tab".',
-  'Actions: reminder (text, "at" as local YYYY-MM-DDTHH:MM worked out from the current time given below, a bare "11.30" means the next 11:30, optional "open": a site or app name like youtube, whatsapp, vs code, or "youtube: search words" for a video search); todo (text); todo_done, todo_delete, reminder_delete (text = words from the item); reminder_move (text, at); routine_add (name, times as HH:MM array); routine_set (name, optional times and on:true/false); routine_remove (name); card_add (front, back); exam_add (name, at); play (source youtube or spotify, query); search (query); open (open = site or app name or https address); tab (tab = today, study, media, daily or chat).',
+  'Actions: reminder (text, "at" as local YYYY-MM-DDTHH:MM worked out from the current time given below, a bare "11.30" means the next 11:30, optional "open": a site or app name like youtube, whatsapp, vs code, or "youtube: search words" for a video search); todo (text); todo_done, todo_delete, reminder_delete (text = words from the item); reminder_move (text, at); routine_add (name, times as HH:MM array); routine_set (name, optional times and on:true/false); routine_remove (name); card_add (front, back); exam_add (name, at); search (query); open (open = site or app name or https address); tab (tab = today, study, media, daily or chat).',
   'If a reminder has no clear time, do not use ACTION: ask for the time in plain text.',
 ].join('\n');
 function extractJson(text) {
@@ -133,9 +169,9 @@ async function aiAssist(text, history = []) {
     reminder_move: { type: 'reminder_move', query: q, at: Date.parse(j.at) }, routine_add: { type: 'routine_add', name: String(j.name || q || 'Routine'), times: Array.isArray(j.times) ? j.times : [] },
     routine_set: { type: 'routine_set', name: q, times: Array.isArray(j.times) ? j.times : undefined, on: typeof j.on === 'boolean' ? j.on : undefined }, routine_remove: { type: 'routine_remove', name: q },
     card_add: { type: 'card_add', front: String(j.front || ''), back: String(j.back || '') }, exam_add: { type: 'exam_add', name: String(j.name || q || 'Exam'), at: Date.parse(j.at) }, tab: { type: 'tab', tab: String(j.tab || 'today') },
-    todo: { type: 'todo', text: String(j.text || '') }, play: { type: 'play', source: j.source === 'spotify' ? 'spotify' : 'youtube', query: String(j.query || j.text || '') }, search: { type: 'search', query: String(j.query || j.text || '') },
+    todo: { type: 'todo', text: String(j.text || '') }, search: { type: 'search', query: String(j.query || j.text || '') },
   };
-  if (map[act] && (act !== 'todo' || j.text) && (!['play', 'search'].includes(act) || map[act].query || map[act].text)) return exec(map[act], text, true);
+  if (map[act] && (act !== 'todo' || j.text) && (act !== 'search' || map[act].query || map[act].text)) return exec(map[act], text, true);
   if (act === 'open' && j.open) { const tg = resolveOpen(String(j.open)); if (tg) return exec({ type: 'open', target: tg }, text, true); }
   return { ok: true, intent: { type: 'chat' }, anim: 'talking', say: String(j.reply || j.text || 'Okay.').slice(0, 800), md: true };
 }
@@ -155,7 +191,7 @@ async function resolveSite(name) {
 const askOpen = (name) => ({ ok: true, anim: 'confused', say: `I could not find a website called "${name}". What should I do?`, ask: { options: [{ label: 'Search the web', cmd: 'search ' + name }, { label: 'Search on Google', url: 'https://www.google.com/search?q=' + encodeURIComponent(name) }] } });
 /** "youtube: lofi songs", "https://...", or a plain site / app name -> an openable target. */
 function resolveOpen(s) {
-  const yt = s.match(/^youtube\s*[:\-]\s*(.+)$/i); if (yt) return { label: 'YouTube', kind: 'url', value: media.youtubeSearchUrl(yt[1].trim()) };
+  const yt = s.match(/^youtube\s*[:\-]\s*(.+)$/i); if (yt) return { label: 'YouTube', kind: 'url', value: 'https://www.youtube.com/results?search_query=' + encodeURIComponent(yt[1].trim()) };
   if (/^https:\/\//i.test(s)) return { label: s.replace(/^https:\/\//i, '').split('/')[0], kind: 'url', value: s };
   return intent.findTarget(s);
 }
@@ -163,6 +199,7 @@ function resolveOpen(s) {
 let chatHistory = [];
 async function runCommand(arg) {
   const text = typeof arg === 'string' ? arg : String((arg && arg.text) || ''); chatHistory = Array.isArray(arg && arg.history) ? arg.history : [];
+  if (arg && Array.isArray(arg.files) && arg.files.length) return office.attach(savePaths(arg.files));   // files from the paperclip, a drop or a paste
   return exec(intent.parse(text, new Date()), text, false);
 }
 const notFound = (what, q) => ({ ok: false, anim: 'confused', say: `I could not find ${what}${q ? ' "' + q + '"' : ''}.` });
@@ -219,12 +256,13 @@ async function exec(c, text, viaAi) {
       return { ok: !!e, intent: c, anim: 'checklist', say: `Exam added: ${c.name}, ${new Date(c.at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}.` };
     }
     case 'exam_remove': { const e = tasks.findExam(c.query); if (!e) return notFound('an exam', c.query); tasks.removeExam(e.id); refresh(); return { ok: true, intent: c, say: `Removed ${e.name}.` }; }
-    case 'tab': { setOpen(true); send('dock:tab', ['today', 'study', 'media', 'daily', 'chat'].includes(c.tab) ? c.tab : c.tab === 'cards' ? 'study' : 'today'); return { ok: true, intent: c, say: `Here is ${c.tab}.` }; }
+    case 'tab': { setOpen(true); send('dock:tab', ['today', 'study', 'daily', 'chat'].includes(c.tab) ? c.tab : c.tab === 'cards' ? 'study' : 'today'); return { ok: true, intent: c, say: `Here is ${c.tab}.` }; }
     case 'focus_stop': send('dock:stopFocus'); return { ok: true, intent: c, say: 'Focus stopped.' };
     case 'pref': {
       store.save({ [c.key]: c.value }); for (const w of require('electron').BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.webContents.send('settings:changed', store.publicSettings());
       return { ok: true, intent: c, anim: 'success', say: c.key === 'ringtone' ? `Ringtone: ${c.value}.` : c.key === 'sounds' ? `Sounds ${c.value ? 'on' : 'off'}.` : c.key === 'userName' ? `Nice to meet you, ${c.value}.` : c.key === 'focusGuard' ? `Focus Guard ${c.value ? 'on' : 'off'}.` : `Voice: ${c.value}.` };
     }
+    case 'tour': showTour(); return { ok: true, intent: c, anim: 'greeting', say: 'Here is the tour.' };
     case 'brief': showBrief(); return { ok: true, intent: c, anim: 'greeting', say: 'Here is your day.' };
     case 'focus_report': {
       const f = store.get().lastFocus; if (!f) return { ok: true, intent: c, anim: 'confused', say: 'No focus round yet. Say "start focus" and I will keep you on track.' };
@@ -250,23 +288,6 @@ async function exec(c, text, viaAi) {
     }
     case 'teach': setOpen(true); send('dock:teach', { topic: c.topic || '' }); return { ok: true, intent: c, anim: 'listening', say: c.topic ? `Okay, teach me ${c.topic}.` : 'Okay, what should you teach me?' };
     case 'open': { const ok = openTarget(c.target); return { ok, intent: c, anim: ok ? 'success' : 'confused', say: ok ? `Opening ${c.target.label}.` : `I cannot open ${c.target.label}.` }; }
-    case 'media': return { ok: true, intent: c, media: c.action, seconds: c.seconds || 0 };
-    case 'play': {
-      const q = c.query;
-      if (c.source === 'spotify') {
-        const sp = String(q).match(/open\.spotify\.com\/(?:intl-[a-z]+\/)?(track|album|playlist|artist|episode|show)\/([A-Za-z0-9]+)/);
-        if (sp) return { ok: true, intent: c, anim: 'headphones', play: { source: 'spotify', kind: sp[1], id: sp[2] }, say: 'Here it is.' };
-        openSpotify(q); return { ok: true, intent: c, anim: 'headphones', say: `Opening Spotify for "${q}".` };
-      }
-      const id = media.youtubeId(q); const key = store.getKey('youtube');
-      if (id) return { ok: true, intent: c, anim: 'headphones', play: { source: 'youtube', video: await media.youtubeInfo(id) }, say: 'Playing.' };
-      if (key) {
-        let list = null; try { list = await media.youtubeSearch(q, key); } catch (e) { return { ok: false, intent: c, anim: 'confused', say: 'YouTube did not accept the key: ' + e.message, ask: { options: [{ label: 'Open settings', settings: true }, { label: 'Search on YouTube', url: media.youtubeSearchUrl(q) }] } }; }
-        if (list && list.length) return { ok: true, intent: c, anim: 'headphones', play: { source: 'youtube', video: list[0], more: list.slice(1) }, say: `Playing "${list[0].title}".` };
-        return { ok: true, intent: c, anim: 'confused', say: `I could not find "${q}" on YouTube.`, ask: { options: [{ label: 'Search on YouTube', url: media.youtubeSearchUrl(q) }] } };
-      }
-      return { ok: true, intent: c, anim: 'confused', say: 'To play a song by name inside Tito I need a free YouTube key. Or paste a video link and I will play it right away.', ask: { options: [{ label: 'Add a YouTube key', settings: true }, { label: 'Search on YouTube', url: media.youtubeSearchUrl(q) }] } };
-    }
     case 'ask': {                                   // a question: the AI answers it (with code, lists...); with no AI, a web lookup instead
       if (!viaAi) { const a = await aiAssist(text, chatHistory); if (a) return a; }
       return exec({ type: 'search', query: c.query }, text, true);
@@ -278,6 +299,7 @@ async function exec(c, text, viaAi) {
     case 'quiz': setOpen(true); send('dock:tab', 'study'); return { ok: true, intent: c, say: 'Let us revise.' };
     case 'circle': setTimeout(() => deps.summon(), 150); return { ok: true, intent: c, say: 'Draw around what you want to know.' };
     case 'dock': setOpen(true); send('dock:tab', c.tab); return { ok: true, intent: c };
+    case 'meeting': case 'excel': case 'pdf': case 'note': case 'write': case 'rescue': return office.run(c);
     default: {
       if (!viaAi) { const a = await aiAssist(text, chatHistory); if (a) return a; }
       return { ok: false, intent: c, anim: 'confused', say: 'I am not sure what you want. Pick one below, or add an AI key in Settings so I can chat.', original: text };
@@ -299,35 +321,6 @@ function openTarget(t) {
   if (t.kind === 'app' && APPS[t.value]) { require('child_process').execFile('cmd.exe', ['/c', 'start', '', APPS[t.value]], { windowsHide: true }, () => {}); return true; }
   return false;
 }
-const PLAYER_HTML = `<!doctype html><meta charset="utf-8"><style>html,body{margin:0;height:100%;background:#000;overflow:hidden}#p{width:100%;height:100%}</style><div id="p"></div>
-<script>
-var vid='__ID__',pl=null,CMDS={playVideo:1,pauseVideo:1,seekTo:1,setVolume:1,mute:1,unMute:1};
-function post(o){parent.postMessage(Object.assign({tito:'yt'},o),'*');}
-var tag=document.createElement('script');tag.src='https://www.youtube.com/iframe_api';tag.onerror=function(){post({error:'offline'});};document.head.appendChild(tag);
-window.onYouTubeIframeAPIReady=function(){
-  pl=new YT.Player('p',{width:'100%',height:'100%',videoId:vid,playerVars:{autoplay:1,playsinline:1,rel:0,modestbranding:1},
-    events:{onReady:function(){post({ready:1});},onStateChange:function(e){post({state:e.data});},onError:function(e){post({error:e.data});}}});
-  setInterval(function(){try{post({time:pl.getCurrentTime(),vol:pl.getVolume(),state:pl.getPlayerState()});}catch(x){}},1000);
-};
-addEventListener('message',function(e){var d=e.data;if(!d||d.tito!=='cmd'||!pl||!CMDS[d.fn])return;try{pl[d.fn].apply(pl,d.args||[]);}catch(x){}});
-</script>`;
-let playerPort = 0;
-function ensurePlayer() {
-  return new Promise((resolve) => {
-    if (playerPort) return resolve(playerPort);
-    const http = require('http');
-    const srv = http.createServer((req, res) => {
-      const u = new URL(req.url, 'http://127.0.0.1'); const v = u.searchParams.get('v') || '';
-      if (u.pathname !== '/player' || !/^[\w-]{11}$/.test(v)) { res.writeHead(404); return res.end(); }
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }); res.end(PLAYER_HTML.replace('__ID__', v));
-    });
-    srv.listen(0, '127.0.0.1', () => { playerPort = srv.address().port; resolve(playerPort); });
-  });
-}
-function openSpotify(q) {
-  openOut(media.spotifyUri(q)).catch(() => openOut(media.spotifyWebSearch(q)));
-}
-
 // ------------------------------------------------------------------ IPC
 // flashcards are shared with the overlay's "Save to flashcards" button, so they register even when the dock itself is off
 let cardsDone = false;
@@ -357,9 +350,9 @@ function registerIpc() {
   handle('dock:pop', (v) => { setPop(v); return pop; });
   handle('dock:popH', (h) => { const n = Math.max(80, Math.min(440, Math.round(Number(h) || 150))); if (n !== popH) { popH = n; if (pop && !open) apply(); } return popH; });
   handle('dock:briefData', () => briefData());
-  handle('undo:run', ({ kind, id }) => {
+  handle('undo:run', ({ kind, id, ids }) => {
     if (kind === 'todo') tasks.removeTodo(id); else if (kind === 'reminder') tasks.removeReminder(id); else if (kind === 'card') store.removeCard(id);
-    else if (kind === 'routine') tasks.removeRoutine(id); else if (kind === 'todo_done') tasks.toggleTodo(id, false);
+    else if (kind === 'reminders') { for (const x of ids || []) tasks.removeReminder(x); } else if (kind === 'routine') tasks.removeRoutine(id); else if (kind === 'todo_done') tasks.toggleTodo(id, false);
     send('dock:cards'); return tasks.snapshot();
   });
   // Focus Guard
@@ -377,7 +370,25 @@ function registerIpc() {
     const log = [...(store.get().focusLog || []), { ts: Date.now(), min: Math.round(rep.onSec / 60), score: rep.score }].slice(-80);
     store.save({ xp: (store.get().xp || 0) + rep.xp, focusLog: log, lastFocus: rep }); return { ok: true, report: rep };
   });
-  handle('dock:bubble', (v) => { if (bubble !== !!v) { bubble = !!v; apply(); } return bubble; });
+  handle('dock:pin', (v) => { pinned = !!v; return pinned; });
+  handle('tour:done', () => { store.save({ tourDone: true }); pinned = false; return true; });
+  handle('dock:file', ({ action, path: p }) => {
+    if (!madeFiles.has(p) || !require('fs').existsSync(p)) return { ok: false, message: 'That file is not available any more.' };
+    if (process.env.TITO_DOCK_HIDDEN) return { ok: true };
+    if (action === 'reveal') shell.showItemInFolder(p); else shell.openPath(p);
+    return { ok: true };
+  });
+  handle('dock:pickFiles', async () => {               // the paperclip button
+    const r = await require('electron').dialog.showOpenDialog(win && !win.isDestroyed() ? win : undefined, { title: 'Attach files', properties: ['openFile', 'multiSelections'], filters: [{ name: 'Documents, pictures and sheets', extensions: ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'xlsx', 'xlsm', 'csv', 'tsv', 'docx', 'txt', 'md', 'json', 'log', 'py', 'js', 'html', 'css', 'java', 'c', 'cpp', 'sql'] }, { name: 'All files', extensions: ['*'] }] });
+    return r.canceled ? [] : r.filePaths;
+  });
+  handle('dock:pdf', (paths) => {                      // PDFs dropped on the pet or panel
+    const fs = require('fs'); const l = (Array.isArray(paths) ? paths : []).filter((p) => typeof p === 'string' && /\.pdf$/i.test(p) && fs.existsSync(p)).slice(0, 20);
+    if (!l.length) return { ok: false, message: 'That is not a PDF.' };
+    pdfList = l; curPdf = l[l.length - 1];
+    return { ok: true, count: l.length, name: path.basename(curPdf) };
+  });
+  handle('dock:bubble', (v) => { const n = v ? Math.min(420, Math.max(40, Math.round(Number(v)) || 120)) : 0; if (bubble !== n) { bubble = n; apply(); } return !!bubble; });   // the bubble reports its real height so buttons are never cut off
   handle('target:open', (t) => ({ ok: openTarget(t) }));
   handle('dock:hide', () => { win.hide(); store.save({ dockOn: false }); return true; });
   handle('dock:command', (arg) => runCommand(arg));
@@ -414,14 +425,13 @@ function registerIpc() {
   });
   handle('exam:add', ({ name, date }) => { const e = tasks.addExam(name, date); return { ok: !!e, data: tasks.snapshot() }; });
   handle('exam:remove', (id) => { tasks.removeExam(id); return tasks.snapshot(); });
-  // media / search / voice
+  // search / voice
   handle('clip:explain', async ({ text, mode }) => {
     const engine = require('./engine');
     const ask = mode === 'foreign' ? 'Translate this text into simple English (or Hindi if it is English) and give only the translation in the answer field.' : 'Explain this error in simple words and give the most likely fix.';
     const r = await engine.ask({ images: [], turns: [{ role: 'user', text: ask + '\n\n"""' + String(text).slice(0, 2500) + '"""' }], task: mode === 'foreign' ? 'translate' : 'fix' });
     return r.ok ? { ok: true, title: r.result.title, answer: r.result.answer } : { ok: false, message: r.message || 'No answer available.' };
   });
-  handle('media:playerUrl', async (id) => { if (!/^[\w-]{11}$/.test(String(id))) return { ok: false }; const port = await ensurePlayer(); return { ok: true, url: `http://127.0.0.1:${port}/player?v=${id}` }; });
   handle('teach:evaluate', async ({ topic, text, round, question }) => {
     const engine = require('./engine');
     const user = `Topic: ${String(topic).slice(0, 120)}\nRound ${round || 1} of 3${question ? '\nYou asked the student: ' + String(question).slice(0, 200) : ''}\nThe student explains:\n"""${String(text).slice(0, 1800)}"""`;
@@ -434,11 +444,8 @@ function registerIpc() {
   });
   handle('teach:finish', ({ topic, scores }) => {
     const sc = (Array.isArray(scores) ? scores : []).map(Number).filter(Number.isFinite); const avg = sc.length ? Math.round(sc.reduce((x, y) => x + y, 0) / sc.length) : 0;
-    const gain = Math.max(1, Math.round(avg / 4)); store.save({ xp: (store.get().xp || 0) + gain }); return { ok: true, avg, gain, stats: store.cardStats() };
+    const gain = Math.max(1, Math.round(avg / 4)); store.save({ xp: (store.get().xp || 0) + gain, teachLog: [...(store.get().teachLog || []), { ts: Date.now(), topic: String(topic || '').slice(0, 80), avg }].slice(-80) }); return { ok: true, avg, gain, stats: store.cardStats() };
   });
-  handle('media:key', async (action) => ({ ok: await media.pressKey(action) }));
-  handle('media:spotify', (q) => { openSpotify(q); return true; });
-  handle('media:youtubeInfo', async (text) => { const id = media.youtubeId(text); return id ? { ok: true, video: await media.youtubeInfo(id) } : { ok: false, message: 'That is not a YouTube link.' }; });
   handle('search:lookup', (q) => search.lookup(q, { searx: store.get().searxUrl }));
   handle('voice:transcribe', async ({ audio, mime }) => {
     try { const text = await voice.transcribe(Buffer.from(audio), { apiKey: store.getKey('groq'), mime }); return { ok: true, text }; }
@@ -449,7 +456,7 @@ function registerIpc() {
 // ------------------------------------------------------------------ shortcuts
 const SC_DEFAULT = { voice: 'CommandOrControl+Shift+V', todo: 'CommandOrControl+Shift+T', dock: 'CommandOrControl+Shift+D', quiz: 'CommandOrControl+Shift+K' };
 const scAction = {
-  voice: () => { ensure(); if (!win.isVisible()) win.showInactive(); setPop(true); send('dock:pop', { voice: true }); },
+  voice: () => { ensure(); if (!win.isVisible()) win.showInactive(); try { win.moveTop(); } catch { /* ignore */ } setPop(true); send('dock:pop', { voice: true }); },
   todo: () => { ensure(); if (!win.isVisible()) win.showInactive(); setPop(true); send('dock:pop', { prefill: 'add todo ' }); },
   dock: () => toggleDock(),
   quiz: () => { ensure(); setOpen(true); send('dock:tab', 'study'); },
@@ -466,7 +473,13 @@ function bindShortcuts(map) {
   return failed;
 }
 const currentMap = (extra) => ({ ...SC_DEFAULT, ...(store.get().shortcuts || {}), ...(extra || {}) });
-function registerShortcuts() { return bindShortcuts(currentMap()); }
+let scTimer = null;
+/** Registers the shortcuts. A shortcut that is busy (an old Tito still closing after an update, or another app) is retried every few seconds. */
+function registerShortcuts() {
+  const failed = bindShortcuts(currentMap()); clearInterval(scTimer);
+  if (failed.length && !process.env.TITO_DOCK_HIDDEN) { let n = 0; scTimer = setInterval(() => { n++; if (!bindShortcuts(currentMap()).length || n >= 60) clearInterval(scTimer); }, 5000); }
+  return failed;
+}
 /** Tries new shortcuts; if one is taken, puts the old ones back and says which. */
 function tryShortcuts(patch) {
   const failed = bindShortcuts(currentMap(patch));
@@ -498,7 +511,7 @@ function applySettings() {
 
 function onSummon() {                               // Ctrl+Shift+Space: hide the dock (and its panel) until the overlay closes
   if (!win || win.isDestroyed() || !win.isVisible()) return;
-  open = false; bubble = false; apply(); win.hide(); hiddenForOverlay = true;
+  open = false; bubble = 0; apply(); win.hide(); hiddenForOverlay = true;
 }
 function onOverlayClosed() {
   if (hiddenForOverlay && win && !win.isDestroyed() && store.get().dockOn !== false) { win.showInactive(); apply(); }
@@ -513,10 +526,59 @@ function briefData() {
   return {
     name: store.get().userName || '', hour: new Date().getHours(), countdowns: [...rem, ...ex].sort((a, b) => a.at - b.at).slice(0, 4),
     todos: snap.todos.filter((t) => !t.done).slice(0, 4).map((t) => ({ id: t.id, text: t.text })), due: st.due, streak: st.streak,
-    routinesDone: snap.stats.done, routinesTotal: snap.stats.total,
+    routinesDone: snap.stats.done, routinesTotal: snap.stats.total, rescue: office.rescueLine(),
   };
 }
 function showBrief() { ensure(); if (win && !win.isVisible() && store.get().dockOn !== false) win.showInactive(); setPop(true); send('dock:brief', briefData()); }
+
+// ------------------------------------------------------------------ office commands (meetings, Excel, PDF, notes, exam rescue)
+const madeFiles = new Set();                          // files Tito wrote this session: the only ones a button may open
+let curPdf = '', pdfList = [], testClip = null;
+const outDir = (sub) => {
+  const base = process.env.TITO_OUT_DIR || path.join(require('electron').app.getPath('documents'), 'Tito');
+  const d = path.join(base, sub); require('fs').mkdirSync(d, { recursive: true }); return d;
+};
+async function pickPdfs(multi) {
+  if (process.env.TITO_TEST_PDFS) { const l = JSON.parse(process.env.TITO_TEST_PDFS); return multi ? l : l.slice(0, 1); }
+  const r = await require('electron').dialog.showOpenDialog(win && !win.isDestroyed() ? win : undefined, { title: multi ? 'Choose the PDFs to merge' : 'Choose a PDF', properties: ['openFile', ...(multi ? ['multiSelections'] : [])], filters: [{ name: 'PDF', extensions: ['pdf'] }] });
+  return r.canceled ? [] : r.filePaths;
+}
+async function captureScreen() {
+  const fs = require('fs'); if (process.env.TITO_TEST_IMAGE) return fs.readFileSync(process.env.TITO_TEST_IMAGE).toString('base64');
+  const { desktopCapturer } = require('electron'); const d = screen.getPrimaryDisplay(); const was = win && !win.isDestroyed() && win.isVisible();
+  if (was) win.hide(); await new Promise((r) => setTimeout(r, 250));              // the pet steps aside so it is not in the picture
+  try {
+    const src = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: Math.round(d.size.width * d.scaleFactor), height: Math.round(d.size.height * d.scaleFactor) } });
+    const pick = src.find((x) => String(x.display_id) === String(d.id)) || src[0]; return pick ? pick.thumbnail.toPNG().toString('base64') : '';
+  } finally { if (was && win && !win.isDestroyed() && !hiddenForOverlay) win.showInactive(); }
+}
+/** Files from the renderer: a path, or { name, data } for a pasted picture (written to a temp folder). Returns paths. */
+function savePaths(list) {
+  const fs = require('fs'); const out = [];
+  for (const f of list.slice(0, 20)) {
+    if (typeof f === 'string') { if (f) out.push(f); continue; }
+    if (f && f.data) { const dir = path.join(require('electron').app.getPath('userData'), 'uploads'); fs.mkdirSync(dir, { recursive: true }); const p = path.join(dir, Date.now() + '-' + String(f.name || 'file').replace(/[^\w.\- ]+/g, '_').slice(-60)); fs.writeFileSync(p, Buffer.from(f.data)); out.push(p); }
+  }
+  return out;
+}
+function officeSetup() {
+  const userData = require('electron').app.getPath('userData');
+  notes.init(userData); exam.init(userData);
+  office.setup({
+    tasks, store, search, outDir, register: (p) => { madeFiles.add(p); return p; },
+    open: (p) => { if (!process.env.TITO_DOCK_HIDDEN) shell.openPath(p); }, reveal: (p) => { if (!process.env.TITO_DOCK_HIDDEN) shell.showItemInFolder(p); },
+    pickPdfs, getPdf: () => curPdf, setPdf: (p, all) => { curPdf = p; pdfList = all || [p]; }, pdfList: () => pdfList,
+    clipboard: () => { if (testClip) return testClip; const cb = require('electron').clipboard; const img = cb.readImage(); return { text: cb.readText(), image: img && !img.isEmpty() ? img.toPNG().toString('base64') : '' }; },
+    captureScreen, ocr: (b64) => require('./ocr').recognize(b64), pdfRender: (html) => require('./pdf').renderHtml(html),
+    aiImage: async (b64, mime, prompt) => {
+      try { const r = await require('./engine').ask({ images: [{ mime, data: b64 }], turns: [{ role: 'user', text: prompt }], task: 'explain', rawSystem: 'You are Tito, a friendly study helper. Answer in short Markdown.', rawJson: false, maxTokens: 1200 }); return r && r.ok && r.result && r.result.answer ? String(r.result.answer).trim() : null; } catch { return null; }
+    },
+    aiText: async (system, user) => {
+      try { const r = await require('./engine').ask({ images: [], turns: [{ role: 'user', text: String(user).slice(0, 7500) }], task: 'explain', rawSystem: system, rawJson: false, maxTokens: 1500 }); return r && r.ok && r.result && r.result.answer ? String(r.result.answer).trim() : null; } catch { return null; }
+    },
+    history: () => chatHistory, alert, refresh, send,
+  });
+}
 
 function init(d) {
   deps = d;
@@ -524,9 +586,16 @@ function init(d) {
   tasks.init(require('electron').app.getPath('userData'), onTaskEvent);
   session.defaultSession.setPermissionRequestHandler((wc, perm, cb) => cb(perm === 'media' && wc.getURL().startsWith('file://')));
   session.defaultSession.setPermissionCheckHandler((wc, perm) => perm === 'media' && !!wc && wc.getURL().startsWith('file://'));
-  registerIpc(); ensure(); registerShortcuts(); applySettings();
+  officeSetup(); registerIpc(); ensure(); registerShortcuts(); applySettings();
+  if (!process.env.TITO_DOCK_HIDDEN) setTimeout(() => { require('./pdftools').warm().catch(() => {}); }, 25000);   // get pdf.js ready in the background while Tito is idle
+  if (!process.env.TITO_DOCK_HIDDEN) { setTimeout(() => { try { office.autoAdjust(); } catch { /* ignore */ } }, 12000); setInterval(() => { try { office.autoAdjust(); } catch { /* ignore */ } }, 3600000); }   // exam plans: mark past days, move missed work
   // once a day, the first time Tito starts after 6 am, the pet gives the morning brief
-  if (store.get().greetOnStart !== false && !process.env.TITO_DOCK_HIDDEN) setTimeout(showBrief, 5000);        // every start: greeting, countdowns and the to-do list
+  const version = require('electron').app.getVersion(), last = store.get().lastVersion;
+  if (!process.env.TITO_DOCK_HIDDEN) {
+    if (!store.get().tourDone && (deps.firstRun || !store.get().userName && !last)) { store.save({ lastVersion: version }); setTimeout(showTour, 3500); }                 // a new install: the tour
+    else if (last !== version) setTimeout(() => showWhatsNew(version), 4000);                                                                                           // an update: what is new, once
+    else if (store.get().greetOnStart !== false) setTimeout(showBrief, 5000);
+  }        // every start: greeting, countdowns and the to-do list
 }
 
-module.exports = { _feedFocus: (title, proc, dt) => focusSession && focusSession.feed(title, proc, dt), showBrief, onOverlayClosed, onSummon, tryShortcuts, applySettings, ignoreClip, registerCards, init, toggleDock, openPanel, setOpen, getWindow: () => win, runCommand, registerShortcuts };
+module.exports = { showTour, showWhatsNew, updateEvent, _setTestClipboard: (c) => { testClip = c; }, _setPdf: (p) => { curPdf = p; pdfList = [p]; }, _feedFocus: (title, proc, dt) => focusSession && focusSession.feed(title, proc, dt), showBrief, onOverlayClosed, onSummon, tryShortcuts, applySettings, ignoreClip, registerCards, init, toggleDock, openPanel, setOpen, getWindow: () => win, runCommand, registerShortcuts };

@@ -4,7 +4,7 @@ const dir = path.join(__dirname, '..', 'node_modules', '@phosphor-icons', 'core'
 const NAMES = ['scribble-loop', 'selection', 'monitor', 'translate', 'file-pdf', 'notebook', 'brain', 'cloud-slash', 'key', 'download-simple',
   'github-logo', 'windows-logo', 'play', 'pause', 'speaker-high', 'check-circle', 'copy', 'magic-wand', 'sparkle', 'lightning', 'globe', 'lock-simple',
   'text-aa', 'cpu', 'books', 'keyboard', 'hand-waving', 'rocket-launch', 'shield-check', 'wifi-slash', 'clipboard-text', 'terminal-window', 'cloud-arrow-down',
-  'plus', 'minus', 'arrow-square-out', 'image-square', 'bug', 'calculator', 'list-bullets', 'heart', 'star', 'x'];
+  'plus', 'minus', 'arrow-square-out', 'image-square', 'bug', 'calculator', 'list-bullets', 'heart', 'star', 'x', 'calendar-check', 'table', 'paperclip', 'timer', 'chart-line-up', 'video-camera', 'file-xls', 'file-doc', 'note-pencil', 'magnifying-glass', 'graduation-cap', 'folder-simple', 'cursor-click', 'crosshair', 'arrow-right', 'eye', 'lightbulb', 'trophy', 'bell', 'cards'];
 const out = {};
 for (const n of NAMES) {
   const f = path.join(dir, `${n}-duotone.svg`);

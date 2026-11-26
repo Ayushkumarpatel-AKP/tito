@@ -41,10 +41,9 @@ Select text and press **Translate**. English text goes into your language (Setti
 
 ## Tito Dock (the pet at the edge of your screen)
 Click Tito to open the panel, drag him to either screen edge. Say or type commands in the box at the top (English, Hindi or Hinglish):
-`remind me to call mom at 5 pm`, `kal 5 baje reminder`, `add todo buy milk`, `play lofi on youtube`, `search black hole`, `maine lunch kha liya`, `pause`, `agla gaana`.
+`remind me to call mom at 5 pm`, `kal 5 baje reminder`, `add todo buy milk`, `search black hole`, `maine lunch kha liya`.
 - **Today**: reminders and deadlines (countdown, bubble and Windows notification), to-do list, import a calendar (.ics).
 - **Study**: flashcards (Leitner revision), quiz, mistakes, exam countdown and plan, 25 minute focus timer, weekly card you can share.
-- **Media**: YouTube player inside Tito (paste a link, or add a free YouTube key to play by name), Spotify links, and play / pause / next for anything playing in Windows.
 - **Daily**: meals, water, medicine, brushing, exercise and bed time reminders with streaks. Add your own.
 - Shortcuts (change them in Settings): Ctrl+Shift+V voice, T quick to-do, D show or hide the dock, K quiz.
 - Voice uses your free Groq key (Whisper). Web lookups use Wikipedia, DuckDuckGo Instant Answers and, if you set one, your own SearXNG address. DuckDuckGo's results page is bot-protected, so Tito does not scrape it.
@@ -52,6 +51,20 @@ Click Tito to open the panel, drag him to either screen edge. Say or type comman
 
 ## Focus Guard (new)
 Start a focus round and Tito quietly watches the title of the window in front (only the title and program name, on this PC, every 3 seconds; nothing is stored except a summary and nothing is sent anywhere). When you drift to Instagram, Netflix, a game or a random YouTube video for 25 seconds he nudges you with "Back to work" and "5 min break", and when the round ends he shows a focus report: focus score, minutes studied and drifted, your top distractions, xp. A YouTube lecture or your notes do not count as distractions. Add your own words in Settings, or turn it off. Say "focus report" any time.
+
+## Office helpers (type or say them in the small popup or Chat; no AI key needed)
+Files Tito makes go to `Documents\Tito\...`, and a button opens them. A key only makes summaries nicer.
+- **Meetings**: "kal 4 baje Rahul ke saath meeting google meet" sets a reminder 10 minutes before and one at the time, each with a Join / Start button (it never opens by itself), and writes a `.ics` calendar file (Outlook, Google Calendar, phones). Paste a meeting link and the button joins that exact room.
+- **Excel**: "make an expense sheet: date, item, amount, total" (or "marks sheet", "attendance", "timetable"...) writes a real `.xlsx` with live formulas (totals, running totals, percentages), a styled header and filters. "excel from clipboard" and "export this table to excel" turn a copied or chat table into a sheet.
+- **PDF commands**: drop a PDF on Tito (or pick one when asked), then "chapters", "definitions", "important points", "summary of page 12", "find osmosis in pdf", "pages 5 to 9 alag karo", "merge pdfs", "save definitions as flashcards", "extract text".
+- **Topic notes**: "note on cells: ...", "add clipboard to notes" (a screenshot on the clipboard is read with the offline OCR), "snap screen to notes". Notes of one topic join automatically and are arranged (key terms, summary, bullets by source). "show notes on cells", "export notes on cells as pdf" makes Markdown, Word and PDF.
+- **Write from the web**: "write a note on photosynthesis from the internet" builds a note from Wikipedia sections and the top web pages, with sources.
+- **Exam Rescue Autopilot**: drop your syllabus PDF and say "exam rescue chemistry on 20 dec" (optionally "2 hours a day at 7 pm" or "8 chapters" with no PDF). Tito finds the chapters, plans every day (study + Teach Tito reminders, revision at the end), makes flashcards from each chapter's definitions, adds the exam to your countdowns, and watches Focus Guard: a day with too little study moves the work forward and pulls cards back for revision. "how ready am i" shows a readiness score from study progress, card accuracy and Teach Tito scores; "chapter 3 done" and "replan my exam plan" also work.
+
+## First start, updates and "what is new"
+- **First-time tour:** on a new install Tito says hello, asks what to call you (and remembers it), then walks you through the small popup (you can tap real commands to try them), the circle shortcut (a button presses it for you), the panel, files, what to ask and the shortcuts. Say "tour" any time to see it again. Settings opens when the tour ends.
+- **Updates:** when a new version is found Tito says so in a quiet bubble, and when it is downloaded a card offers **Restart and update** or **Later**. Your reminders, cards and notes stay as they are.
+- **What is new:** after an update Tito greets you by name once and lists what changed, with a button for the tour.
 
 ## Small popup, greeting and chat
 - A click on Tito opens a small popup (type, speak, or tap To-do / Remind / Circle) for small jobs; the answer comes back there with an **Undo** button. Only big things open the full panel.
@@ -61,15 +74,8 @@ Start a focus round and Tito quietly watches the title of the window in front (o
 ## Teach Tito (Study tab, or say "teach tito photosynthesis")
 The Feynman technique with a pet: you explain a topic to Tito as if he were 10 (type, or press Speak), and he scores it out of 100, tells you what you got right, what is missing and what is not quite right, then asks a curious follow-up question. Three rounds, then a teaching score, xp, and the gaps saved as flashcards in one tap. It works for any subject and any language style (English, Hindi, Hinglish) and needs an AI key (Gemini or Groq, both free).
 
-## Playing and opening things
-- Paste any YouTube link (in the command bar or the Media box) and it plays inside Tito; a Spotify link embeds; any other link opens.
-- Playing a song by name inside Tito needs a free YouTube key (Settings); Tito asks instead of silently opening a browser. The other results are listed under the player and "next" goes through them.
-- "open unstop" (any site name Tito does not know): Tito checks the likely address and opens it, or asks what to do. Anything unclear gets a question, not a guess.
-
-## Themes, ringtones and Tito's voice
-- **Themes** (Settings > Theme): Mochi, Midnight, Cyber, Graphite, Ocean, Forest, Sunset, Lavender. They restyle the dock, the answer card and the app. Say "cyber theme" to Tito too.
-- **Ringtones**: eight original melodies made in the app (Marimba, Sparkle, Soft bells, Sunrise, Retro beeps, plus Kenney CC0 samples). A ringing reminder shakes Tito and sends out sound rings and floating notes.
-- **Natural voice**: free with your Gemini key (Gemini speech models, found from the live model list). Or add a key for OpenAI, ElevenLabs, or any OpenAI-compatible `/audio/speech` address. Without a key Tito can use the Windows voice. `node tools/test-tts.js` checks the request shapes against a pretend server.
+## Opening things
+- Paste any link and it opens in your browser.
 - Reminders that mention a website or video (for example "open mr beast latest video at 12:04 am") open it by themselves at that time. Installed apps (WhatsApp, VS Code, Spotify...) wait for a button instead.
 
 ## Using it
@@ -80,9 +86,10 @@ The Feynman technique with a pet: you explain a topic to Tito as if he were 10 (
 
 ## Testing
 The self-test never captures the real desktop: set `TITO_TEST_IMAGE` to a picture (see `tools/make-test-backdrop.py`), `TITO_SHOTS` to an output folder and your keys in the environment, then `npm run selftest`.
-Other checks: `node tools/test-intent.js`, `node tools/test-tasks.js`, `npx electron tools/test-dock.js <out dir>` (drives the dock in a window that is never shown), `node tools/try-models.js`, `node tools/test-translate.js`, `node tools/test-llm.js`, `node tools/test-offline-tr.js`, `electron tools/test-pdf.js out.pdf`. `node tools/get-pack.js llm|hi` downloads a pack from the command line.
+Other checks: `node tools/test-intent.js`, `node tools/test-office.js` (meetings, Excel, PDF, notes, exam autopilot; opens the files in LibreOffice when installed), `node tools/test-tasks.js`, `npx electron tools/test-dock.js <out dir>` (drives the dock in a window that is never shown), `node tools/try-models.js`, `node tools/test-translate.js`, `node tools/test-llm.js`, `node tools/test-offline-tr.js`, `electron tools/test-pdf.js out.pdf`. `node tools/get-pack.js llm|hi` downloads a pack from the command line.
 
 ## Layout
+- `src/office.js`, `intent-office.js`, `meeting.js`, `excel.js`, `xlsx.js`, `docx.js`, `zip.js`, `pdftools.js`, `notes.js`, `exam.js`, `textkit.js`: the office helpers above (pdf.js and pdf-lib read and edit PDFs).
 - `main.js`, `preload.js`, `src/`: tray, hotkey, screen capture, providers (`providers.js`), model discovery (`models.js`), requests (`ai.js`), routing and fallbacks (`engine.js`), translation (`translate.js`, `offline-tr.js`), built-in AI (`llm.js`), packs (`packs.js`), OCR, PDF (`pdf.js`), memory, storage
 - `renderer/`: overlay (selection + answer card), settings / notebook, greeting toast, sprite engine, clay CSS, colourful icons (Phosphor duotone, MIT)
 - `assets/tito/`: sprite strips + `manifest.json` built by `tools/build_sprites.py` from the animation pack

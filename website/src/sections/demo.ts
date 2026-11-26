@@ -3,11 +3,12 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import type { Pets } from '../lib/pets';
 import { qs, qsa, reduced } from '../lib/dom';
 import { SAMPLES, type SampleId, type Action } from '../data/samples';
+import { addSelection, resetSelection, showSelected, type SelParts } from '../lib/select';
 
 /** "Try it right here": pick something, draw around it, Tito answers. The answers are real Tito output, shown as samples. */
 export function initDemo(pets: Pets): void {
   const text = qs('#tryText');
-  const loop = qs<SVGPathElement>('#tryLoop path');
+  const parts: SelParts = { win: qs('#tryScreen'), target: text, sel: qs('#trySel'), cursor: qs('#tryCursor') };
   const card = qs('#tryCard');
   const title = qs('#tryTitle');
   const answer = qs('#tryAnswer');
@@ -50,7 +51,7 @@ export function initDemo(pets: Pets): void {
   const reset = (): void => {
     typing?.kill();
     busy = false;
-    gsap.set(loop, { strokeDashoffset: 1 });
+    resetSelection(parts);
     (acts as HTMLElement).hidden = true;
     title.textContent = 'Tito is waiting';
     answer.textContent = 'Press the button and watch him work.';
@@ -77,25 +78,22 @@ export function initDemo(pets: Pets): void {
     title.textContent = 'Looking closely...';
     answer.textContent = '';
     pet?.play('searching');
-    gsap.fromTo(loop, { strokeDashoffset: 1 }, {
-      strokeDashoffset: 0,
-      duration: motion ? 1.15 : 0.01,
-      ease: 'power2.inOut',
-      onComplete: () => {
-        gsap.delayedCall(motion ? 0.35 : 0, () => {
-          (acts as HTMLElement).hidden = false;
-          busy = false;
-          show('explain');
-        });
-      },
-    });
+    resetSelection(parts);
+    const tl = gsap.timeline();
+    const { end } = addSelection(tl, parts, 0, motion ? 1.1 : 0.01);
+    tl.call(() => {
+      (acts as HTMLElement).hidden = false;
+      busy = false;
+      show('explain');
+    }, [], end + (motion ? 0.45 : 0));
   };
 
-  gsap.set(loop, { strokeDashoffset: 1 });
+  resetSelection(parts);
   tabs.forEach((b) => b.addEventListener('click', () => pick(b.dataset.sample as SampleId)));
   qsa<HTMLButtonElement>('.chip', acts).forEach((b) => b.addEventListener('click', () => { if (!busy) show(b.dataset.act as Action); }));
   draw.addEventListener('click', run);
 
   // play it once on its own the first time it scrolls into view
-  ScrollTrigger.create({ trigger: '.try__screen', start: 'top 60%', once: true, onEnter: () => gsap.delayedCall(0.5, run) });
+  ScrollTrigger.create({ trigger: '#tryScreen', start: 'top 60%', once: true, onEnter: () => gsap.delayedCall(0.5, run) });
+  window.addEventListener('resize', () => { if (!busy && !(acts as HTMLElement).hidden) showSelected(parts); });
 }

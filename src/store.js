@@ -29,6 +29,8 @@ const DEFAULTS = {
   sounds: true,                  // cute sound effects for alerts, quiz and the dock
   autoOpenSites: true,           // a reminder about a website or video opens it at the time (apps only get a button)
   theme: 'mochi',
+  tourDone: false,               // the first-time tour has been seen (or skipped)
+  lastVersion: '',               // the Tito version that last ran, to show "what is new" once after an update
   userName: '',                  // what Tito calls you
   focusGuard: true,              // Focus Guard: nudge when a focus round drifts to distracting windows
   guardWords: '',                // your own extra distracting words, comma separated
@@ -127,12 +129,13 @@ function clearHistory() { history = []; writeJson('history.json', history); }
 const DAY = 86400000, BOX_DAYS = [0, 1, 3, 7, 14, 30];
 let cards = null;
 const deck = () => cards || (cards = readJson('cards.json', []));
-function addCard(front, back) {
+function addCard(front, back, tag, due) {
   front = String(front || '').trim().slice(0, 120); back = String(back || '').trim().slice(0, 600);
   if (!front || !back) return null;
   const d = deck(); const dup = d.find((c) => c.front.toLowerCase() === front.toLowerCase());
-  if (dup) return dup;
-  const c = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5), front, back, box: 0, due: Date.now(), made: Date.now() };
+  if (dup) { if (tag && !dup.tag) { dup.tag = String(tag).slice(0, 60); if (Number.isFinite(due) && dup.box === 0) dup.due = due; writeJson('cards.json', d); } return dup; }
+  const c = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5), front, back, box: 0, due: Number.isFinite(due) ? due : Date.now(), made: Date.now() };
+  if (tag) c.tag = String(tag).slice(0, 60);
   d.unshift(c); writeJson('cards.json', d); return c;
 }
 const isMistake = (c) => (c.missed || 0) > 0 && c.box < 2;
@@ -150,6 +153,11 @@ function gradeCard(id, right) {
 }
 const cardStats = () => ({ total: deck().length, mistakes: deck().filter(isMistake).length, due: deck().filter((c) => c.due <= Date.now()).length, streak: get().streak || 0, xp: get().xp || 0 });
 const listCards = () => deck().slice();
+/** Brings the cards of one tag (a chapter of an exam plan) back to due today, up to n of them. Returns how many. */
+function pullCards(tag, n = 5) {
+  const hit = deck().filter((c) => c.tag === tag && c.due > Date.now()).slice(0, n); for (const c of hit) c.due = Date.now();
+  if (hit.length) writeJson('cards.json', deck()); return hit.length;
+}
 const removeCard = (id) => { cards = deck().filter((c) => c.id !== id); writeJson('cards.json', cards); };
 
 /** What the weekly card shows: questions asked in the notebook and cards reviewed over the last 7 days. */
@@ -160,4 +168,4 @@ function weekStats() {
   return { asked: hist().filter((h) => h.ts >= since).length, reviewed, focusMin, cards: deck().length, streak: get().streak || 0, xp: get().xp || 0 };
 }
 
-module.exports = { weekStats, listCards, addCard, dueCards, gradeCard, cardStats, removeCard, modelCache, load, get, save, setKey, getKey, publicSettings, addHistory, listHistory, removeHistory, clearHistory, DEFAULTS };
+module.exports = { pullCards, weekStats, listCards, addCard, dueCards, gradeCard, cardStats, removeCard, modelCache, load, get, save, setKey, getKey, publicSettings, addHistory, listHistory, removeHistory, clearHistory, DEFAULTS };

@@ -8,7 +8,7 @@ import { qs, qsa, maybe, reduced } from '../lib/dom';
 /** Section headings: lines rise out of a mask when they scroll into view. */
 export function initHeadings(): void {
   const motion = !reduced();
-  qsa('main .slab:not(.hero) h2, .foot h2').forEach((h) => {
+  qsa('main .sec h2, .foot h2').forEach((h) => {
     SplitText.create(h, {
       type: 'lines',
       mask: 'lines',
@@ -22,15 +22,17 @@ export function initHeadings(): void {
   });
 }
 
-/** Everything else fades up in small batches as it arrives. */
+/** Everything else fades up in small batches as it arrives. Only things below the first screen start hidden, so the page is complete at rest. */
 export function initReveals(): void {
-  const sel = '.lead, .player, .try__tabs, .try__screen, .try__card, .probe-wrap, .step, .source, .faq details, .providers';
+  const sel = '.sec__lead, .player, .try, .probe-wrap, .step, .source, .faq details, .providers';
   const els = qsa(sel).filter((e) => !e.closest('.hero'));
-  if (reduced()) { gsap.set(els, { autoAlpha: 1 }); return; }
-  ScrollTrigger.batch(els, {
-    start: 'top 90%',
+  if (reduced()) return;
+  const below = els.filter((e) => e.getBoundingClientRect().top > window.innerHeight * 0.95);
+  gsap.set(below, { y: 36, autoAlpha: 0 });
+  ScrollTrigger.batch(below, {
+    start: 'top 92%',
     once: true,
-    onEnter: (batch) => gsap.fromTo(batch, { y: 40, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.8, stagger: 0.1, ease: 'power3.out' }),
+    onEnter: (batch) => gsap.to(batch, { y: 0, autoAlpha: 1, duration: 0.8, stagger: 0.1, ease: 'power3.out' }),
   });
 }
 

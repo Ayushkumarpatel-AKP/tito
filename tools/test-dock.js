@@ -1,5 +1,5 @@
 // electron tools/test-dock.js <out dir> : drives the dock in a window that is never shown, saves screenshots, checks the logic.
-process.env.TITO_DOCK_HIDDEN = '1'; process.env.GEMINI_API_KEY = ''; process.env.GROQ_API_KEY = '';   // no AI in tests: unknown commands must fail politely
+process.env.TITO_OUT_DIR = require('path').join(require('os').tmpdir(), 'tito-out-' + process.pid); process.env.TITO_DOCK_HIDDEN = '1'; process.env.GEMINI_API_KEY = ''; process.env.GROQ_API_KEY = '';   // no AI in tests: unknown commands must fail politely
 const { app, BrowserWindow } = require('electron');
 const fs = require('fs'), path = require('path'), os = require('os');
 const out = process.argv[2] || fs.mkdtempSync(path.join(os.tmpdir(), 'tito-dock-')); fs.mkdirSync(out, { recursive: true });
@@ -60,7 +60,7 @@ app.whenReady().then(async () => {
   r = await js(`window.__dockRun('delete flashcard cell')`); ok(r.ok && !store.listCards().some((c) => c.front === 'cell'), 'command: delete a flashcard');
   r = await js(`window.__dockRun('remind me at 11 pm to call mom')`); r = await js(`window.__dockRun('change reminder call mom to 6 am')`); ok(r.ok && /Moved/.test(r.say), 'command: move a reminder: ' + r.say);
   r = await js(`window.__dockRun('delete reminder call mom')`); ok(r.ok && !snap().reminders.some((x) => /call mom/.test(x.text)), 'command: delete a reminder');
-  r = await js(`window.__dockRun('show media tab')`); await sleep(300); ok((await js('window.__dock.state()')).tab === 'media', 'command: show a tab');
+  r = await js(`window.__dockRun('show study tab')`); await sleep(300); ok((await js('window.__dock.state()')).tab === 'study', 'command: show a tab');
   r = await js(`window.__dockRun('ringtone sparkle')`); ok(r.ok && store.get().ringtone === 'sparkle', 'command: ringtone');
   r = await js(`window.__dockRun('mark invisible thing done')`); ok(!r.ok, 'command about something missing says so: ' + r.say);
   r = await js(`window.__dockRun('add todo buy milk')`); ok(r.ok && /buy milk/.test(r.say), 'todo command: ' + r.say);
@@ -83,10 +83,18 @@ app.whenReady().then(async () => {
   ok(store.cardStats().mistakes >= 1, 'a missed card lands in the mistakes list (' + store.cardStats().mistakes + ')');
   ok(store.weekStats().reviewed >= 2, 'weekly stats count reviews (' + store.weekStats().reviewed + ')');
   await js(`window.__dock.setTab('daily')`); await sleep(400); await shot('7-daily');
-  await js(`window.__dock.setTab('media')`); await sleep(400); await shot('8-media');
   dock.setOpen(false); await sleep(500);
   tasks.addReminder('Open WhatsApp', Date.now() - 1000, { open: { label: 'WhatsApp', kind: 'app', value: 'whatsapp' } }); tasks.tick(); await sleep(900); await shot('8a-bubble-alert');
   ok(await js(`document.querySelectorAll('#bubble .bbtns .chip').length`) >= 2, 'the pet bubble shows the Open and Dismiss buttons ');
+  // the bubble with three buttons on two rows (the one that used to be cut off): every button and the whole bubble sit inside the window
+  { const fit = async () => js(`(() => { const r = (e) => e.getBoundingClientRect(), b = r(document.getElementById('bubble')), c = [...document.querySelectorAll('#bubble .bbtns .chip')].map(r); return { n: c.length, top: b.top, bottom: b.bottom, btn: Math.max(...c.map((x) => x.bottom)), h: innerHeight, petTop: r(document.getElementById('pet')).top }; })()`);
+    for (const dy of [0, 400, 1200]) {
+      await js(`window.tito.dock.dragStart(); window.tito.dock.drag(0, ${dy ? -dy : 0}); window.tito.dock.dragEnd()`); await sleep(200);
+      tasks.addReminder('Open Instagram', Date.now() - 1000, { open: { label: 'Instagram', kind: 'url', value: 'https://instagram.com' } }); tasks.tick(); await sleep(900);
+      const f = await fit(); ok(f.n === 3 && f.top >= 0 && f.btn <= f.bottom + 0.5 && f.bottom <= f.h && f.bottom <= f.petTop + 40, 'long alert bubble fits whole, buttons not cut (' + JSON.stringify(f) + ')'); await shot('8b-bubble-fit-' + dy);
+      ok(inside(), 'the window with the tall bubble stays on screen');
+      await js(`document.querySelector('#bubble .bbtns .chip:last-child').click()`); await sleep(400);
+    } }
   await js(`document.querySelector('#bubble .bbtns .chip:last-child').click()`); await sleep(400); dock.setOpen(true); await sleep(400);
   // ---- Teach Tito: explain a topic, get graded, go another round, save the gaps as flashcards
   await js(`window.__dock.setTab('study'); window.__dock.teach('photosynthesis', true)`); await sleep(500);
@@ -107,10 +115,6 @@ app.whenReady().then(async () => {
   // ---- commands that used to confuse Tito
   r = await js(`window.__dockRun('open unstop')`); ok(r.ok && /unstop/i.test(r.say), 'unknown name "open unstop" finds the website: ' + r.say);
   r = await js(`window.__dockRun('open qzxwvbnmk')`); ok(r.ok && r.ask && r.ask.options.length >= 1, 'a name with no website asks what to do instead of guessing: ' + r.say);
-  r = await js(`window.__dockRun('play kesariya song')`); ok(r.ask && r.ask.options.some((o) => o.settings), 'a song name without a YouTube key asks to set one up instead of opening a browser');
-  r = await js(`window.__dockRun('https://youtu.be/aqz-KE-bpKQ')`); await sleep(2500); { const y = await js('window.__dock.yt()'); ok(y.id === 'aqz-KE-bpKQ', 'a pasted YouTube link plays in Tito: ' + JSON.stringify(y)); }
-  await js(`document.getElementById('ytIn').value = 'https://www.youtube.com/watch?v=jNQXAC9IVRw'; document.getElementById('ytForm').requestSubmit()`); await sleep(3000);
-  { const y = await js('window.__dock.yt()'); ok(y.id === 'jNQXAC9IVRw', 'pasting another link in the Media box switches the video: ' + y.id); }
 
   // ---- small popup: small jobs do not open the panel, and can be undone
   dock.setOpen(false); await sleep(400); await js(`window.__dock.pop('', false)`); await sleep(500);
@@ -152,17 +156,79 @@ app.whenReady().then(async () => {
   r = await js(`window.__dockRun('focus report')`); ok(r.ok && /Focus score/.test(r.say), 'command: focus report');
   await js(`[...document.querySelectorAll('#fReport button')].find((b) => b.textContent === 'Done').click()`); await sleep(300);
 
-  // the YouTube player must either play or say why it cannot, never show a black box
-  await js(`window.__dock.setTab('media'); window.__dock.playVideo({ id: 'jNQXAC9IVRw', title: 'Test video', channel: 'test' })`);
-  let yt = null; for (let i = 0; i < 16; i++) { await sleep(1000); yt = await js(`({ ...window.__dock.yt(), err: !!document.querySelector('.playerr') })`); if (yt.ready || yt.err) break; }
-  ok(yt && (yt.ready || yt.err), 'the player is ready or shows a message: ' + JSON.stringify(yt)); await shot('8d-player');
   await js(`window.__dock.setTab('chat')`); await sleep(500); await shot('8c-chat');
   r = await js(`window.__dockRun('search black hole')`); ok(r.ok && r.search, 'search returns: ' + String(r.say).slice(0, 60)); await sleep(2500); await js(`window.__dock.setTab('today')`); await sleep(500); await shot('9-search');
-  r = await js(`window.__dockRun('play lofi on youtube')`); ok(r.ok, 'play without a YouTube key falls back: ' + r.say);
 
   dock.setOpen(false); await sleep(400); await win.webContents.removeInsertedCSS(freezeKey); await js(`window.__dock.ringFx(true); window.__dock.mood('alarm', 0)`); await sleep(900); await shot('21-ringing'); await js(`window.__dock.ringFx(false)`); await win.webContents.insertCSS('*, *::before, *::after { animation: none !important; transition: none !important; }');
   dock.setOpen(true); await js(`window.__dock.setTab('today')`);
   for (const t of themeShots) { await js(`document.documentElement.dataset.theme = '${t}'`); await shot('20-' + t); }
+
+  // ---- office commands through the real panel: meeting, Excel, PDF drop, notes, exam rescue, file buttons
+  {
+    const fsx = require('fs'); const run = (c) => js(`window.__dockRun(${JSON.stringify(c)}, { from: 'panel' })`);
+    const { PDFDocument, StandardFonts } = require('pdf-lib'); const d = await PDFDocument.create(); const f = await d.embedFont(StandardFonts.Helvetica);
+    for (const t of ['Chapter 1: Cells', 'cells page two', 'Chapter 2: Energy', 'energy page two']) { const pg = d.addPage([595, 842]); pg.drawText(t, { x: 50, y: 780, size: 16, font: f }); pg.drawText('Mitochondria are defined as the organelles that release energy for the cell to use.', { x: 50, y: 740, size: 11, font: f }); pg.drawText('Remember that every cell needs energy to stay alive and to divide.', { x: 50, y: 720, size: 11, font: f }); }
+    const pdfPath = path.join(out, 'drop.pdf'); fsx.writeFileSync(pdfPath, await d.save());
+    const bad0 = await win.webContents.executeJavaScript(`window.tito.dock.pdf(['C:/nope/x.txt'])`); ok(bad0.ok === false, 'dropping a non-PDF is refused politely');
+    const dr = await win.webContents.executeJavaScript(`window.tito.dock.pdf(${JSON.stringify([pdfPath])})`); ok(dr.ok && dr.name === 'drop.pdf', 'dropping a PDF on Tito sets the current PDF');
+    const mt = await run('kal 4 baje Rahul ke saath meeting google meet'); ok(mt.ok && /Meeting set/.test(mt.say) && mt.ask.options.some((o) => /\.ics$/.test(o.file || '')), 'panel: meeting command sets the meeting and offers the calendar file');
+    const fo = await js(`window.tito.dock.file({ action: 'open', path: ${JSON.stringify(mt.ask.options[0].file)} })`); ok(fo.ok, 'the calendar file button is allowed to open the file Tito made');
+    const fx = await js(`window.tito.dock.file({ action: 'open', path: 'C:/Windows/System32/cmd.exe' })`); ok(fx.ok === false, 'a button can never open a file Tito did not make');
+    const ex = await run('make an excel sheet: name, class, marks'); ok(ex.ok && ex.ask.options.some((o) => /\.xlsx$/.test(o.file || '')), 'panel: Excel command makes the sheet');
+    const ch = await run('chapters batao pdf'); ok(ch.ok && /Chapter 1: Cells/.test(ch.say), 'panel: PDF chapters from the dropped file');
+    const df = await run('definitions from the pdf'); ok(df.ok && /Mitochondria/.test(df.say), 'panel: PDF definitions');
+    const sp = await run('pages 2 to 3 alag karo'); ok(sp.ok && sp.ask.options.some((o) => /\.pdf$/.test(o.file || '')), 'panel: PDF split');
+    const nt = await run('note on cells: Cells are the basic unit of life and all living things are made of them.'); ok(nt.ok, 'panel: note saved');
+    const sn = await run('show notes on cells'); ok(sn.ok && /Cells/.test(sn.say), 'panel: note shown');
+    const wk = await run('exam rescue biology on ' + (() => { const x = new Date(Date.now() + 9 * 86400000); return x.getDate() + ' ' + x.toLocaleString('en', { month: 'short' }); })());
+    ok(wk.ok && /plan is ready/.test(wk.say), 'panel: exam rescue plan from the dropped PDF');
+    const rd = await run('how ready am i'); ok(rd.ok && /% ready/.test(rd.say), 'panel: readiness');
+    const bf = await js(`window.tito.dock.briefData()`); ok(bf && bf.rescue && bf.rescue.name === 'Biology', 'the greeting carries the exam readiness line');
+    await js(`window.__dock.brief(${JSON.stringify(bf)})`); await sleep(500); await shot('9-brief-exam');
+    ok(await js(`document.getElementById('brief').textContent.includes('Biology')`), 'greeting popup shows the exam line');
+    // the Join / Start button label on an alert
+    await js(`window.__dock.closePop()`); dock.setOpen(false); await sleep(500);
+    require('../src/tasks').addReminder('Meeting with Sam in 10 minutes', Date.now() - 1000, { open: { label: 'Google Meet', kind: 'url', value: 'https://meet.google.com/abc-defg-hij', noAuto: true, join: 'join' } }); require('../src/tasks').tick(); await sleep(900);
+    ok((await js(`[...document.querySelectorAll('#bubble .bbtns .chip')].map((x) => x.textContent).join('|')`)).includes('Join Google Meet'), 'meeting alert shows a Join Google Meet button');
+    await shot('9b-meeting-alert'); await js(`document.querySelector('#bubble .bbtns .chip:last-child').click()`); await sleep(300);
+    dock.setOpen(true); await sleep(300); await js(`window.__dock.setTab('chat')`); await sleep(300); await shot('9c-chat-office');
+    ok(await js(`!!document.getElementById('btnClip') && !!document.getElementById('popClip')`), 'the paperclip buttons exist in Chat and in the small popup');
+    dock.setOpen(false); await sleep(400);
+    await js(`window.postMessage({ tito: 'drop', paths: [${JSON.stringify(pdfPath)}] }, '*')`); await sleep(3000);
+    const dropped = await js(`document.getElementById('chatLog') ? document.getElementById('chatLog').innerText : document.body.innerText`);
+    ok(/Attached: drop\.pdf/.test(dropped) && /PDF, 4 pages/.test(dropped), 'dropping a file opens the chat and Tito reads it: ' + dropped.replace(/\s+/g, ' ').slice(-120));
+    const attBtns = await js(`[...document.querySelectorAll('#reply .alertbtns .chip')].map((x) => x.textContent).join('|')`); ok(/Chapters/.test(attBtns) && /Summary/.test(attBtns), 'the reply offers Chapters, Summary and Definitions buttons: ' + attBtns);
+    const txtP = path.join(out, 'hello.txt'); fsx.writeFileSync(txtP, 'Cells are the basic unit of life. Remember that every living thing is made of cells that grow and divide.');
+    const viaCmd = await js(`window.tito.dock.command({ text: 'Attached: hello.txt', files: [${JSON.stringify(txtP)}, { name: 'pasted.png', data: new Uint8Array([137,80,78,71]).buffer }] })`); ok(viaCmd.ok && /hello\.txt/.test(viaCmd.say) && /pasted\.png/.test(viaCmd.say), 'files and a pasted picture go through the command channel');
+    await js(`window.postMessage({ tito: 'drop', paths: [] }, '*')`); await sleep(500); await shot('9d-attach');
+  }
+
+  // ---- first-time tour, update card and "what is new"
+  {
+    const tourText = () => js(`document.getElementById('tour').hidden ? '' : document.getElementById('tour').innerText`);
+    const click = (label) => js(`(() => { const b = [...document.querySelectorAll('#tour button')].find((x) => x.textContent.trim() === ${JSON.stringify(label)}); if (b) b.click(); return !!b; })()`);
+    dock.setOpen(false); await sleep(300); await js(`document.getElementById('tour').hidden = true`);
+    store.save({ userName: '', tourDone: false }); dock.showTour(); await sleep(900);
+    let t = await tourText(); ok(/Hi, I am Tito :\)/.test(t) && /What should I call you/.test(t), 'the tour opens with a sweet hello and asks for your name'); await shot('10-tour-hello');
+    await js(`(() => { const i = document.querySelector('#tour input.tname'); i.value = 'asha'; })()`); await click('Next'); await sleep(900);
+    t = await tourText(); ok(store.get().userName === 'Asha' && /Nice to meet you, Asha/.test(t), 'the name is remembered and used right away (' + store.get().userName + ')');
+    await click('Next'); await sleep(500); t = await tourText(); ok(/Try the small popup/.test(t), 'the tour offers commands to try for real');
+    await js(`[...document.querySelectorAll('#tour .tchips .chip')].find((x) => /time/.test(x.textContent)).click()`); await sleep(900);
+    ok(/\d/.test(await js(`document.querySelector('#tour .tres').innerText`)), 'a command tapped in the tour really runs and answers');
+    await click('Next'); await sleep(400); t = await tourText(); ok(/Circle anything/.test(t) && /Space/.test(t), 'the tour shows the circle shortcut'); await shot('10b-tour-circle');
+    await click('Next'); await sleep(400); ok(/Your panel/.test(await tourText()), 'the tour explains the panel');
+    await click('Next'); await sleep(400); ok(/Say it and I do it/.test(await tourText()), 'the tour shows what to ask');
+    await click('Next'); await sleep(400); ok(/Shortcuts/.test(await tourText()), 'the tour lists the shortcuts');
+    await click('Back'); await sleep(300); ok(/Say it and I do it/.test(await tourText()), 'Back goes one step back');
+    await click('Next'); await sleep(300); await click('Next'); await sleep(400); t = await tourText(); ok(/You are all set, Asha :\)/.test(t), 'the last step uses your name'); await shot('10c-tour-done');
+    await click('Start using Tito'); await sleep(700); ok(store.get().tourDone === true && (await tourText()) === '', 'finishing the tour closes it and it is not shown again');
+    // an update that is ready, and what is new after an update
+    dock.updateEvent('ready', { version: '9.9.9' }); await sleep(700); t = await tourText(); ok(/A new Tito is ready :\)/.test(t) && /9\.9\.9/.test(t) && /Restart and update/.test(t) && /Later/.test(t), 'the update card offers Restart and update, or Later'); await shot('10d-update');
+    await click('Later'); await sleep(500); ok((await tourText()) === '', 'Later closes the update card');
+    dock.showWhatsNew('9.9.9'); await sleep(700); t = await tourText(); ok(/Tito 9\.9\.9 is here, Asha :\)/.test(t) && /Take the tour/.test(t), 'what is new greets you by name after an update'); await shot('10e-whatsnew');
+    await click('Got it'); await sleep(400);
+    r = await js(`window.__dockRun('tour')`); await sleep(700); ok(r.ok && /Hi, I am Tito|Nice to meet you/.test(await tourText()), 'saying "tour" starts it again'); await click('Skip the tour'); await sleep(400);
+  }
   ok(errors.length === 0, 'no renderer errors' + (errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''));
   console.log(bad ? bad + ' FAILED' : 'dock ok', '->', out); app.exit(bad ? 1 : 0);
 });

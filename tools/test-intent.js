@@ -11,12 +11,6 @@ const cases = [
   ['10 minute baad chai reminder', { type: 'reminder', at: '25/11/2026, 10:10' }],
   ['add todo buy milk', { type: 'todo', text: 'buy milk' }],
   ['todo mein doodh add karo', { type: 'todo', text: 'doodh' }],
-  ['play lofi on youtube', { type: 'play', source: 'youtube', query: 'lofi' }],
-  ['youtube par lofi chalao', { type: 'play', source: 'youtube', query: 'lofi' }],
-  ['play arijit singh on spotify', { type: 'play', source: 'spotify', query: 'arijit singh' }],
-  ['pause', { type: 'media', action: 'pause' }],
-  ['agla gaana', { type: 'media', action: 'next' }],
-  ['volume up', { type: 'media', action: 'volup' }],
   ['search black hole', { type: 'search', query: 'black hole' }],
   ['black hole ke baare mein batao', { type: 'ask', query: 'black hole' }],
   ['maine lunch kha liya', { type: 'routine', name: 'Lunch' }],
@@ -63,8 +57,8 @@ for (const q of earlyCases) {
   if (!when || when.getHours() !== 1 || when.getMinutes() !== 5 || when.getDate() !== 26) { bad++; console.log('FAIL', JSON.stringify(q), 'got', got.at ? at(got) : got.type); }
 }
 upkeep.push(
-  ['https://youtu.be/dQw4w9WgXcQ?si=abc', { type: 'play', source: 'youtube' }], ['play https://www.youtube.com/watch?v=dQw4w9WgXcQ', { type: 'play', source: 'youtube' }],
-  ['https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC', { type: 'play', source: 'spotify' }], ['https://unstop.com/hackathons', { type: 'open' }],
+  ['https://youtu.be/dQw4w9WgXcQ?si=abc', { type: 'open' }],
+  ['https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC', { type: 'open' }], ['https://unstop.com/hackathons', { type: 'open' }],
   ['open unstop', { type: 'open_site', name: 'unstop' }], ['open unstop website', { type: 'open_site', name: 'unstop' }], ['unstop kholo', { type: 'open_site', name: 'unstop' }],
   ['open unstop at 5 pm', { type: 'reminder', openName: 'unstop' }], ['open youtube', { type: 'open' }],
   ['teach tito photosynthesis', { type: 'teach', topic: 'photosynthesis' }], ['let me teach you newton laws', { type: 'teach', topic: 'newton laws' }], ['feynman mode', { type: 'teach', topic: '' }],
@@ -82,4 +76,50 @@ for (const [s, want] of cases) {
   const ok = Object.entries(want).every(([k, v]) => flat[k] === v);
   if (!ok) { bad++; console.log('FAIL', JSON.stringify(s), '\n   want', JSON.stringify(want), '\n   got ', JSON.stringify(flat)); }
 }
-console.log((cases.length + lateCases.length + upkeep.length + earlyCases.length - bad) + '/' + (cases.length + lateCases.length + upkeep.length + earlyCases.length) + ' ok'); process.exit(bad ? 1 : 0);
+
+// office commands (meetings, Excel, PDF, notes, web notes, exam rescue); now = Wed 2026-11-25 10:00
+const office = [
+  ['kal 4 baje Rahul ke saath meeting google meet', { type: 'meeting', who: 'Rahul', provider: 'Google Meet', at: '26/11/2026, 16:00' }],
+  ['schedule a zoom meeting with Priya Sharma tomorrow at 5pm', { type: 'meeting', who: 'Priya Sharma', provider: 'Zoom', at: '26/11/2026, 17:00' }],
+  ['set meeting at 6 pm', { type: 'meeting', at: '25/11/2026, 18:00' }],
+  ['meeting kal 9 am team standup', { type: 'meeting', at: '26/11/2026, 09:00' }],
+  ['remind me about the meeting at 5 pm', { type: 'reminder' }],
+  ['open google meet at 5pm', { type: 'reminder' }],
+  ['nice to meet you', { type: 'unknown' }],
+  ['make an expense sheet: date, item, amount, total', { type: 'excel', source: 'text' }],
+  ['is mahine ka kharcha ka sheet banao: date, item, amount, total', { type: 'excel', source: 'text' }],
+  ['excel from clipboard', { type: 'excel', source: 'clipboard' }],
+  ['clipboard ko excel mein convert karo', { type: 'excel', source: 'clipboard' }],
+  ['export this table to excel', { type: 'excel', source: 'chat' }],
+  ['open excel', { type: 'open' }],
+  ['chapters batao pdf', { type: 'pdf', op: 'chapters' }],
+  ['extract important definitions from the pdf', { type: 'pdf', op: 'defs' }],
+  ['summary of page 12', { type: 'pdf', op: 'summary', pages: '12' }],
+  ['summarize chapter 3 of the pdf', { type: 'pdf', op: 'summary', chapter: 3 }],
+  ['merge pdfs', { type: 'pdf', op: 'merge' }],
+  ['pages 5 se 9 alag karo', { type: 'pdf', op: 'split', pages: '5 se 9' }],
+  ['split pdf pages 5-9', { type: 'pdf', op: 'split', pages: '5-9' }],
+  ['find osmosis in pdf', { type: 'pdf', op: 'find', query: 'osmosis' }],
+  ['save pdf definitions as flashcards', { type: 'pdf', op: 'cards' }],
+  ['write a note on photosynthesis from the internet', { type: 'write', topic: 'photosynthesis' }],
+  ['Photosynthesis par ek page ka note banao internet se', { type: 'write', topic: 'photosynthesis' }],
+  ['note on cells: cells are the unit of life', { type: 'note', op: 'add', topic: 'cells', from: 'text' }],
+  ['add clipboard to notes under biology', { type: 'note', op: 'add', from: 'clipboard', topic: 'biology' }],
+  ['snap screen to notes', { type: 'note', op: 'add', from: 'screen' }],
+  ['show notes on cells', { type: 'note', op: 'show', topic: 'cells' }],
+  ['notes', { type: 'note', op: 'list' }],
+  ['export notes on cells as pdf', { type: 'note', op: 'export', topic: 'cells' }],
+  ['exam rescue chemistry on 20 dec', { type: 'rescue', op: 'create', name: 'Chemistry', at: '20/12/2026, 09:00' }],
+  ['chemistry exam 20 dec ke liye study plan banao', { type: 'rescue', op: 'create', name: 'Chemistry' }],
+  ['how ready am i', { type: 'rescue', op: 'status' }],
+  ['chapter 3 done', { type: 'rescue', op: 'done', n: 3 }],
+  ['replan my exam plan', { type: 'rescue', op: 'replan' }],
+  ['exam physics on 20 dec', { type: 'exam_add' }],
+  ['tour', { type: 'tour' }], ['show tour', { type: 'tour' }], ['how to use tito', { type: 'tour' }],
+  ['add todo buy milk', { type: 'todo' }],
+];
+for (const [s, want] of office) {
+  const got = parse(s, now); const flat = { ...got, at: at(got) };
+  if (!Object.entries(want).every(([k, v]) => flat[k] === v)) { bad++; console.log('FAIL', JSON.stringify(s), '\n   want', JSON.stringify(want), '\n   got ', JSON.stringify(flat)); }
+}
+const total = cases.length + lateCases.length + upkeep.length + earlyCases.length + office.length; console.log((total - bad) + '/' + total + ' ok'); process.exit(bad ? 1 : 0);

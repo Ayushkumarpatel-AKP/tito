@@ -103,10 +103,10 @@ function setupUpdates() {
   if (!app.isPackaged || SELFTEST) return;
   let autoUpdater; try { ({ autoUpdater } = require('electron-updater')); } catch { return; }
   autoUpdater.autoDownload = true; autoUpdater.autoInstallOnAppQuit = true; autoUpdater.logger = null;
-  autoUpdater.on('update-available', () => { updateState = 'downloading'; });
+  autoUpdater.on('update-available', (i) => { updateState = 'downloading'; try { dock.updateEvent('downloading', i); } catch { /* the dock is not up yet */ } });
   autoUpdater.on('update-not-available', () => { updateState = 'idle'; });
   autoUpdater.on('error', () => { updateState = 'idle'; });
-  autoUpdater.on('update-downloaded', (i) => { updateState = 'ready'; showToast({ state: 'greeting', text: `Tito ${i.version} is ready. It installs the next time you quit Tito.` }); refreshTray(); });
+  autoUpdater.on('update-downloaded', (i) => { updateState = 'ready'; let shown = false; try { shown = dock.updateEvent('ready', i); } catch { shown = false; } if (!shown) showToast({ state: 'greeting', text: `Tito ${i.version} is ready. It installs the next time you quit Tito.` }); refreshTray(); });
   const check = () => { try { autoUpdater.checkForUpdates().catch(() => {}); } catch { /* offline */ } };
   check(); setInterval(check, 6 * 3600 * 1000);
   ipcMain.on('app:installUpdate', () => { quitting = true; autoUpdater.quitAndInstall(); });
@@ -303,10 +303,10 @@ app.whenReady().then(async () => {
   if (!ok) showToast({ state: 'error', text: `${prettyKey(s.hotkey)} is already used by another app. Pick a new shortcut in Settings.` });
   else if (s.greetOnStart && !SELFTEST && s.dockOn === false) showToast({ state: 'greeting', text: `Tito is awake. Press ${prettyKey(s.hotkey)} and circle anything on your screen.` });
 
-  if (!LAUNCHED_AT_LOGIN && !SELFTEST) openSettings('home');
+  if (!LAUNCHED_AT_LOGIN && !SELFTEST && !firstRun) openSettings('home');   // a first start shows Tito's tour instead, and opens Settings when it ends
   setupUpdates();
   ensureOverlay();                       // pre-load so the hotkey feels instant
-  if (!SELFTEST || process.env.TITO_DOCK_TEST) dock.init({ summon, openSettings });   // the self-test never opens the dock on the real desktop
+  if (!SELFTEST || process.env.TITO_DOCK_TEST) dock.init({ summon, openSettings, firstRun });   // the self-test never opens the dock on the real desktop
   if (SELFTEST) require('./src/selftest').run({ summon, openSettings, showToast, closeOverlay, getOverlay: () => overlayWin, getSettings: () => settingsWin, getToast: () => toastWin });
 });
 
